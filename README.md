@@ -1,9 +1,4 @@
-## Diagrama de Classes
-
-![git add .
-git commit -m "docs: adiciona imagem
-git push](diagrama.jpg.jpeg)
-
+<p align="center"><img src="src/com/alimentabem/ui/resources/logo.png" alt="Logo AlimentaBem" width="130"></p>
 
 # Sistema AlimentaBem
 
@@ -56,8 +51,59 @@ JavaFX, USDA FoodData Central (https://fdc.nal.usda.gov/api-key-signup — chave
 **Requisito bônus (opcional, fora da contagem oficial):** gerar um relatório HTML estático com o impacto nutricional do mês (calorias/proteínas distribuídas por instituição), aberto automaticamente no navegador via `Desktop.getDesktop().browse()`.
 
 
+## Como executar
+
+1. Abra a pasta do projeto no IntelliJ e marque `src` como **Sources Root** (botão direito em `src` → *Mark Directory as* → *Sources Root*).
+2. Use **JDK 17 ou superior** (o código usa `switch` com `->` e `java.net.http`).
+3. Execute uma das classes `main`:
+   * `com.alimentabem.ui.AlimentaBemApp` — **interface gráfica (Swing)**;
+   * `com.alimentabem.ui.Main` — interface de console.
+4. *(Opcional)* Para consultar a USDA com chave própria, defina a variável de ambiente `USDA_API_KEY` (sem ela, a tela usa `DEMO_KEY`, que tem limite baixo).
+
+> Os dados ficam em memória: ao fechar o programa eles são perdidos.
+
+## Onde está cada requisito
+
+Cada implementação tem um comentário `// REQxx` logo acima. Para localizar, pesquise `REQ13` (por exemplo) no projeto.
+
+| Requisito | Regra / serviço | Tela gráfica (`AlimentaBemApp`) |
+|---|---|---|
+| REQ01 | `Doador`, `PessoaFisica`, `Empresa`, `ControladorDoador` | `abrirCadastroDoador` |
+| REQ02 | `InstituicaoServiceImpl`, `ViaCepService` (BrasilAPI) | `abrirCadastroInstituicao` |
+| REQ03 | `Alimento`, `AlimentoServiceImpl` | `abrirFormAlimento` |
+| REQ04 | `Doacao`, `ItemDoacao`, `ControladorDoacao` | `abrirCadastroDoacao` |
+| REQ05 | `NutricaoService` (USDA) | `abrirValorNutricional` |
+| REQ06 | `RelatorioService.calcularNutricionalDaDoacao` | `nutriDoacao` |
+| REQ07 | `LoteEstoque`, `EstoqueService` | `abrirTelaEstoque` |
+| REQ08 | `Distribuicao`, `DistribuicaoServiceImpl` | `abrirCadastroDistribuicao` |
+| REQ09 | `EstoqueService.sugerirLotesParaDistribuicao` | `abrirSugestaoFIFO` |
+| REQ10 | `RelatorioService.exportarRelatorioDoacoesCsv` | `abrirRelatorioDoacoes` |
+| REQ11 | `RelatorioService.gerarRelatorioNutricionalPorInstituicao` | `abrirRelatorioNutricional` |
+| REQ12 | `EstoqueService.listarVencendoEm` | `abrirEstoqueAVencer` |
+| REQ13 | `LoteEstoque.retirar`, `EstoqueService` | `planejarFIFO` |
+| REQ14 | `ViaCepService`, `InstituicaoServiceImpl` | `consultarCep` |
+| REQ15 | `Doacao.validarQueTemItens`, `ControladorDoacao` | `abrirCadastroDoacao` |
+| REQ16 | `LoteEstoque.retirar`, `DistribuicaoServiceImpl` | `abrirAdicionarItemDistribuicao` |
+| REQ17 | `DistribuicaoServiceImpl` | `validarERegistrarDistribuicao` |
+| REQ18 | `EstoqueService.sugerirLotesParaDistribuicao` | `planejarFIFO` |
+| REQ19 | `Doacao.adicionarItem`, `EstoqueService` | `abrirAdicionarItemDoacao` |
+| REQ20 | `InstituicaoServiceImpl.remover` | `abrirTelaInstituicoes` |
+| Bônus | — | `gerarRelatorioHtml` |
+
+## Documentação
+
+Veja também [`docs/AUDITORIA.md`](docs/AUDITORIA.md) (pontos de melhoria encontrados no código).
+
+### Diagrama de classes
+
+![Diagrama de classes](docs/diagrama-classes.jpeg)
+
+### Modelo navegacional
+
+![Modelo navegacional](docs/modelo-navegacional.jpeg)
+
 ## Integrantes do grupo com nome completo
-* Enzo Estevão dos Santos Alheiros - Enzo.Estevao@ufrpe.br
-* Julia Maria da Rocha Barbosa Pappen - Julia.Pappen@ufrpe.br
+* Enzo Estevão dos Santos Alheiros - enzo.estevao@ufrpe.br
+* Julia Maria da Rocha Barbosa Pappen - julia.pappen@ufrpe.br
 * Lucas José Amaral da Silva - lucas.joseamaral@ufrpe.br
-* Marcella Barbosa Mascarenhas - Marcella.Mascarenhas@ufrpe.br
+* Marcella Barbosa Mascarenhas - marcella.mascarenhas@ufrpe.br

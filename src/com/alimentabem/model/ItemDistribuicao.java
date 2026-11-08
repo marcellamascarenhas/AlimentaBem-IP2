@@ -1,5 +1,6 @@
 package com.alimentabem.model;
 
+// REQ08: item retirado do estoque: lote de origem + quantidade
 public class ItemDistribuicao {
     private final LoteEstoque lote;
     private final double quantidadeRetirada;

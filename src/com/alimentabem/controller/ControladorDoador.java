@@ -19,6 +19,7 @@ public class ControladorDoador {
         this.repositorio = repositorio;
     }
 
+    // REQ01: cadastro de doador (PF ou Empresa) sem documento duplicado
     public void cadastrarDoador(Doador doador) {
         if (doador == null) {
             throw new ValidacaoException("O doador não pode ser nulo.");

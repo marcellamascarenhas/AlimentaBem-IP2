@@ -3,3 +3,6 @@ bin/
 .venv/
 *.class
 .DS_Store
+out/
+.idea/
+*.iml

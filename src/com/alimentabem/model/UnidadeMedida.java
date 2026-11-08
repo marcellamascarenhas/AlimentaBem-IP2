@@ -1,5 +1,6 @@
 package com.alimentabem.model;
 
+// REQ03: unidades de medida dos alimentos
 public enum UnidadeMedida {
     QUILOGRAMA("kg"),
     LITRO("l"),

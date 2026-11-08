@@ -1,5 +1,6 @@
 package com.alimentabem.model;
 
+// REQ01: doador Pessoa Física (identificado por CPF)
 public class PessoaFisica extends Doador {
     private final String cpf;
     

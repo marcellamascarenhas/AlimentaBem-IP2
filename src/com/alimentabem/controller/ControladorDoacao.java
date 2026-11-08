@@ -19,6 +19,8 @@ public class ControladorDoacao {
         this.repositorioDoador = repositorioDoador;
     }
 
+    // REQ04: registra a doação de um doador cadastrado
+    // REQ15: impede registrar doação sem itens
     public void registrarDoacao(Doacao doacao) {
         if (doacao == null) {
             throw new ValidacaoException("A doação não pode ser nula.");

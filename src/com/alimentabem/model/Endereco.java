@@ -1,5 +1,6 @@
 package com.alimentabem.model;
 
+// REQ02: endereço preenchido automaticamente a partir do CEP (BrasilAPI)
 public class Endereco {
     private String cep;
     private String rua;

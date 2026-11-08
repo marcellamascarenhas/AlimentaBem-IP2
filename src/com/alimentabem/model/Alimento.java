@@ -2,6 +2,8 @@ package com.alimentabem.model;
 
 import java.util.UUID;
 
+// REQ03: alimento: nome, categoria e unidade de medida
+// REQ05: guarda o valor nutricional obtido da API USDA
 public class Alimento {
     private String id;
     private String nome;

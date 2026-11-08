@@ -23,6 +23,7 @@ public class AlimentoServiceImpl implements AlimentoService {
         this.repositorioEstoque = repositorioEstoque;
     }
 
+    // REQ03: cadastro de alimento sem nome duplicado
     @Override
     public Alimento cadastrar(String nome, CategoriaAlimento categoria, UnidadeMedida unidadeMedida) {
         if (nome == null || nome.isBlank()) {

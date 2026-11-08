@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
+// REQ08: distribuição para uma instituição beneficiária com os itens retirados do estoque
 public class Distribuicao {
     private String id;
     private final InstituicaoBeneficiaria instituicao;
@@ -37,6 +38,7 @@ public class Distribuicao {
         itens.add(item);
     }
 
+    // REQ08: toda distribuição precisa ter ao menos um item retirado
     public void validarQueTemItens() {
         if (itens.isEmpty()) {
             throw new ValidacaoException("Não é possível registrar uma distribuição sem nenhum item.");

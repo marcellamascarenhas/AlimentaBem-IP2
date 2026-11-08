@@ -23,6 +23,8 @@ public class InstituicaoServiceImpl implements InstituicaoService {
         this.viaCepService = viaCepService;
     }
 
+    // REQ02: cadastro de instituição com endereço obtido automaticamente pelo CEP
+    // REQ14: CEP inválido/sem retorno na API impede o cadastro
     @Override
     public InstituicaoBeneficiaria cadastrar(String nome, String cep, int capacidadeMensal) {
         if (repoInstituicao.buscarPorNome(nome) != null) {
@@ -51,6 +53,7 @@ public class InstituicaoServiceImpl implements InstituicaoService {
         return repoInstituicao.listarTodos();
     }
 
+    // REQ14: CEP alterado é revalidado na API antes de atualizar
     @Override
     public void atualizar(String nome, String novoNome, String novoCep, int novaCapacidade) {
         InstituicaoBeneficiaria existente = buscarPorNome(nome);
@@ -73,6 +76,7 @@ public class InstituicaoServiceImpl implements InstituicaoService {
         repoInstituicao.atualizar(existente);
     }
 
+    // REQ20: impede excluir instituição com distribuições registradas
     @Override
     public void remover(String nome) {
         InstituicaoBeneficiaria inst = buscarPorNome(nome);

@@ -22,6 +22,7 @@ public class NutricaoService {
     // cache para não repetir consultas
     private final Map<String, ValorNutricional> cache = new HashMap<>();
     
+    // REQ05: consulta calorias e proteínas na API USDA FoodData Central
     public ValorNutricional consultar(String nomeAlimento) throws IOException, InterruptedException {
         String chaveCache = nomeAlimento.trim().toLowerCase();
         

@@ -1,5 +1,6 @@
 package com.alimentabem.model;
 
+// REQ05: calorias e proteínas por 100g (fonte: USDA FoodData Central)
 public class ValorNutricional {
     private final double caloriasPor100g;
     private final double proteinasPor100gEmGramas;

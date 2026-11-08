@@ -4,6 +4,7 @@ import com.alimentabem.exception.ValidacaoException;
 import java.time.LocalDate;
 import java.util.UUID;
 
+// REQ07: lote de estoque (um por alimento + validade), base do controle por lote
 public class LoteEstoque {
     private final String id;
     private final Alimento alimento;
@@ -31,6 +32,7 @@ public class LoteEstoque {
     public LocalDate getDataValidade() { return dataValidade; }
     public double getQuantidadeDisponivel() { return quantidadeDisponivel; }
 
+    // REQ13: define quando um lote é considerado vencido
     public boolean estaVencido() {
         return dataValidade.isBefore(LocalDate.now());
     }
@@ -42,6 +44,8 @@ public class LoteEstoque {
         this.quantidadeDisponivel += quantidade;
     }
 
+    // REQ13: bloqueia a retirada de lote vencido
+    // REQ16: a quantidade retirada não pode exceder a disponível no lote
     public void retirar(double quantidade) {
         if (quantidade <= 0) {
             throw new IllegalArgumentException("A quantidade a retirar deve ser maior que zero.");

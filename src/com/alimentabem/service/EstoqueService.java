@@ -38,6 +38,9 @@ public class EstoqueService {
         public double getQuantidade() { return quantidade; }
     }
 
+    // REQ04: dá entrada no estoque dos itens da doação
+    // REQ15: rejeita doação sem itens
+    // REQ19: rejeita itens com validade vencida
     public List<LoteEstoque> registrarDoacao(Doacao doacao) {
         if (doacao == null) {
             throw new IllegalArgumentException("A doação não pode ser nula.");
@@ -57,6 +60,7 @@ public class EstoqueService {
         return registrarEntrada(item.getAlimento(), item.getQuantidade(), item.getDataValidade());
     }
 
+    // REQ07: entrada agrupada por lote (alimento + data de validade)
     public LoteEstoque registrarEntrada(Alimento alimento, double quantidade, LocalDate dataValidade) {
         if (alimento == null) {
             throw new IllegalArgumentException("O alimento não pode ser nulo.");
@@ -77,6 +81,7 @@ public class EstoqueService {
         return novo;
     }
 
+    // REQ19: bloqueia recebimento de item já vencido
     private void validarValidade(Alimento alimento, LocalDate dataValidade) {
         if (dataValidade == null) {
             throw new IllegalArgumentException("A data de validade é obrigatória.");
@@ -87,6 +92,8 @@ public class EstoqueService {
         }
     }
 
+    // REQ13: lote vencido não pode ser retirado
+    // REQ16: quantidade retirada não pode exceder o saldo do lote
     public void retirar(String idLote, double quantidade) {
         LoteEstoque lote = buscarLotePorId(idLote)
             .orElseThrow(() -> new ValidacaoException("Lote não encontrado: " + idLote));
@@ -97,6 +104,7 @@ public class EstoqueService {
     }
 
     // Algoritmo de Sugestão FIFO (REQ18) com bloqueio de vencidos (REQ13) e alerta de falta (REQ16)
+    // REQ09: sugestão automática de lotes (FIFO)
     public List<SugestaoRetirada> sugerirLotesParaDistribuicao(Alimento alimento, double quantidadeNecessaria) {
         if (alimento == null) {
             throw new IllegalArgumentException("O alimento não pode ser nulo.");
@@ -146,6 +154,7 @@ public class EstoqueService {
         return Optional.ofNullable(repositorioEstoque.buscarPorId(idLote));
     }
 
+    // REQ07: estoque por lote ordenado por data de validade
     public List<LoteEstoque> listarLotes() {
         return repositorioEstoque.listarTodos().stream()
             .sorted(Comparator.comparing(LoteEstoque::getDataValidade))
@@ -170,6 +179,7 @@ public class EstoqueService {
             .sum();
     }
 
+    // REQ12: lotes com vencimento nos próximos N dias (7)
     public List<LoteEstoque> listarVencendoEm(int dias) {
         LocalDate limite = LocalDate.now().plusDays(dias);
         return listarLotes().stream()

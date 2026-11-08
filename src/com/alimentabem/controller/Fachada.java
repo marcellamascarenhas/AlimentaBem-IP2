@@ -40,6 +40,7 @@ public class Fachada {
     }
 
     // --- DOADORES ---
+    // REQ01: cadastrar doadores (Pessoa Física / Empresa)
     public void cadastrarDoador(Doador doador) { controladorDoador.cadastrarDoador(doador); }
     public Doador buscarDoadorPorDocumento(String doc) { return controladorDoador.buscarPorDocumento(doc); }
     public List<Doador> listarDoadores() { return controladorDoador.listarDoadores(); }
@@ -59,6 +60,9 @@ public class Fachada {
     }
 
     // --- DOAÇÕES ---
+    // REQ04: registrar doação e dar entrada no estoque
+    // REQ15: doação sem itens é rejeitada
+    // REQ19: itens vencidos são rejeitados
     public void registrarDoacao(Doacao doacao) {
         controladorDoacao.registrarDoacao(doacao);
         estoqueService.registrarDoacao(doacao);
@@ -66,6 +70,7 @@ public class Fachada {
     public List<Doacao> listarDoacoes() { return controladorDoacao.listarDoacoes(); }
 
     // --- ALIMENTOS E ESTOQUE ---
+    // REQ03: cadastrar alimentos (nome, categoria, unidade)
     public Alimento cadastrarAlimento(String nome, CategoriaAlimento cat, UnidadeMedida um) {
         return alimentoService.cadastrar(nome, cat, um);
     }
@@ -80,10 +85,14 @@ public class Fachada {
         alimentoService.remover(nome);
     }
 
+    // REQ07: estoque por lote, ordenado por data de validade
     public List<LoteEstoque> listarEstoque() { return estoqueService.listarLotes(); }
+    // REQ12: lotes que vencem nos próximos N dias (7 nos relatórios)
     public List<LoteEstoque> listarEstoqueVencendoEm(int dias) { return estoqueService.listarVencendoEm(dias); }
 
     // --- INSTITUIÇÕES BENEFICIÁRIAS ---
+    // REQ02: cadastrar instituição (endereço completado pelo CEP)
+    // REQ14: CEP inválido bloqueia o cadastro
     public InstituicaoBeneficiaria cadastrarInstituicao(String nome, String cep, int capacidadeMensal) {
         return instituicaoService.cadastrar(nome, cep, capacidadeMensal);
     }
@@ -96,11 +105,18 @@ public class Fachada {
         instituicaoService.atualizar(nome, novoNome, novoCep, novaCapacidade);
     }
 
+    // REQ20: não exclui instituição que já tenha distribuições
     public void removerInstituicao(String nome) {
         instituicaoService.remover(nome);
     }
 
     // --- DISTRIBUIÇÕES ---
+    // REQ08: registrar distribuição com os itens retirados do estoque
+    // REQ09: sugestão/aplicação automática de FIFO
+    // REQ13: lotes vencidos nunca são distribuídos
+    // REQ16: quantidade não pode exceder o estoque
+    // REQ17: respeita a capacidade mensal da instituição
+    // REQ18: lote de validade mais próxima sai primeiro
     public Distribuicao registrarDistribuicao(InstituicaoBeneficiaria inst, Map<Alimento, Double> itens, int familias, LocalDate data) {
         return distribuicaoService.registrarDistribuicao(inst, itens, familias, data);
     }

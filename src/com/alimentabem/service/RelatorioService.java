@@ -16,6 +16,7 @@ public class RelatorioService {
         this.nutricaoService = nutricaoService;
     }
 
+    // REQ06: total de calorias e proteínas de uma doação
     public ResultadoNutricional calcularNutricionalDaDoacao(Doacao doacao) throws IOException, InterruptedException {
         double totalCalorias = 0;
         double totalProteinas = 0;
@@ -37,6 +38,7 @@ public class RelatorioService {
         return fatorPara100g * (calorias ? info.getCaloriasPor100g() : info.getProteinasPor100gEmGramas());
     }
 
+    // REQ10: relatório de doações por período e categoria, exportado em CSV
     public void exportarRelatorioDoacoesCsv(List<Doacao> todasAsDoacoes, LocalDate inicio, LocalDate fim, CategoriaAlimento categoriaFiltro, String caminhoArquivo) throws IOException {
         try (FileWriter escritor = new FileWriter(caminhoArquivo)) {
             escritor.write("data_doacao;doador;alimento;categoria;quantidade;unidade;validade\n");
@@ -59,6 +61,7 @@ public class RelatorioService {
         }
     }
 
+    // REQ11: relatório nutricional agregado por instituição no mês
     public Map<String, ResultadoNutricional> gerarRelatorioNutricionalPorInstituicao(
             List<Distribuicao> historico, YearMonth mes) throws IOException, InterruptedException {
 
@@ -78,6 +81,7 @@ public class RelatorioService {
         return totalPorInstituicao;
     }
 
+    // REQ12: itens de estoque que vencem nos próximos 7 dias
     public List<LoteEstoque> listarItensVencendoEm7Dias(EstoqueService estoqueService) {
         return estoqueService.listarVencendoEm(7); // Método alinhado
     }

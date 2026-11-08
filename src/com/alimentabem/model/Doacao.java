@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
+// REQ04: doação vinculada a um doador, composta por itens de doação
 public class Doacao {
     private String id;
     private final Doador doador;
@@ -29,6 +30,7 @@ public class Doacao {
         this.dataDoacao = dataDoacao;
     }
 
+    // REQ19: bloqueia item com validade já vencida na data do recebimento
     public void adicionarItem(ItemDoacao item) {
         if (item == null) {
             throw new IllegalArgumentException("O item de doação não pode ser nulo.");
@@ -40,6 +42,7 @@ public class Doacao {
         itens.add(item);
     }
 
+    // REQ15: impede doação sem nenhum item vinculado
     public void validarQueTemItens() {
         if (itens.isEmpty()) {
             throw new ValidacaoException("Não é possível cadastrar uma doação sem itens.");

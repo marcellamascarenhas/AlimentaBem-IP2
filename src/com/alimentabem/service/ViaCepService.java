@@ -12,6 +12,8 @@ import java.util.regex.Pattern;
 
 public class ViaCepService {
 
+    // REQ02: completa o endereço via BrasilAPI a partir do CEP
+    // REQ14: lança erro se o CEP for inválido ou não tiver retorno
     public Endereco buscarEnderecoPorCep(String cepLimpo) {
         if (cepLimpo == null || !cepLimpo.replaceAll("\\D", "").matches("\\d{8}")) {
             throw new ValidacaoException("CEP inválido: '" + cepLimpo + "'. O CEP deve conter exatamente 8 dígitos (REQ14).");

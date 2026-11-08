@@ -2,6 +2,7 @@ package com.alimentabem.model;
 
 import java.time.LocalDate;
 
+// REQ04: item de doação: alimento, quantidade e data de validade
 public class ItemDoacao {
     private final Alimento alimento;
     private final double quantidade;

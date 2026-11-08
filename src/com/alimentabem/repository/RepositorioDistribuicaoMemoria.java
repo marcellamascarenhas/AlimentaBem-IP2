@@ -37,6 +37,7 @@ public class RepositorioDistribuicaoMemoria implements IRepositorioDistribuicao 
         distribuicoes.removeIf(d -> id.equalsIgnoreCase(d.getId()));
     }
 
+    // REQ20: consulta usada para impedir a exclusão de instituição com distribuições
     @Override
     public List<Distribuicao> buscarPorInstituicao(String nomeInstituicao) {
         if (nomeInstituicao == null || nomeInstituicao.isBlank()) {

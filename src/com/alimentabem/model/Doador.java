@@ -1,5 +1,6 @@
 package com.alimentabem.model;
 
+// REQ01: base da herança de doadores (Pessoa Física e Empresa)
 public abstract class Doador {
     private String nome;
     private String telefone;

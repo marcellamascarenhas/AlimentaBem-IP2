@@ -24,6 +24,8 @@ public class DistribuicaoServiceImpl implements DistribuicaoService {
         this.estoqueService = estoqueService;
     }
 
+    // REQ08: registra a distribuição e baixa os itens do estoque
+    // REQ09: aplica FIFO automaticamente nos lotes
     @Override
     public Distribuicao registrarDistribuicao(InstituicaoBeneficiaria instituicao,
                                              Map<Alimento, Double> itensSolicitados,
@@ -42,6 +44,7 @@ public class DistribuicaoServiceImpl implements DistribuicaoService {
             throw new ValidacaoException("Selecione ao menos um item de alimento para distribuir.");
         }
 
+        // REQ17: bloqueia distribuição se exceder a capacidade mensal da instituição
         int familiasAtendidasNoMes = calcularFamiliasAtendidasNoMes(instituicao, data);
         if (familiasAtendidasNoMes + familiasAtendidas > instituicao.getCapacidadeMensal()) {
             throw new ValidacaoException("Distribuição bloqueada: a instituição '" + instituicao.getNome() +
