@@ -5,7 +5,12 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 // REQ07: lote de estoque (um por alimento + validade), base do controle por lote
-public class LoteEstoque {
+public class LoteEstoque implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
+
+    /** Margem para comparações de quantidades em ponto flutuante. */
+    public static final double TOLERANCIA = 1e-9;
+
     private final String id;
     private final Alimento alimento;
     private final LocalDate dataValidade;
@@ -57,12 +62,16 @@ public class LoteEstoque {
                 "O lote de " + alimento.getNome() + " venceu em " + dataValidade + " e não pode ser distribuído (REQ13).");
         }
 
-        if (quantidade > quantidadeDisponivel) {
+        // tolerância para erros de arredondamento de ponto flutuante (ex.: 0.1 + 0.2)
+        if (quantidade > quantidadeDisponivel + TOLERANCIA) {
             throw new ValidacaoException(
                 "Quantidade solicitada (" + quantidade + ") excede a quantidade disponível (" + quantidadeDisponivel + ") no lote de " + alimento.getNome() + " com validade em " + dataValidade + ".");
         }
 
         this.quantidadeDisponivel -= quantidade;
+        if (Math.abs(this.quantidadeDisponivel) < TOLERANCIA) {
+            this.quantidadeDisponivel = 0; // evita saldos residuais como 2.7E-17
+        }
     }
 
     @Override

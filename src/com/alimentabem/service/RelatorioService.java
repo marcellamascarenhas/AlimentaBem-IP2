@@ -1,8 +1,11 @@
 package com.alimentabem.service;
 
 import com.alimentabem.model.*;
-import java.io.FileWriter;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.HashMap;
@@ -29,18 +32,21 @@ public class RelatorioService {
 
     private double calcularContribuicao(Alimento alimento, double quantidadeEmKgOuL, boolean calorias)
             throws IOException, InterruptedException {
+        // kg/L → ×1000 g; unidade → × peso por unidade. Sem peso cadastrado, o item não entra no total.
+        Double gramas = alimento.gramasPara(quantidadeEmKgOuL);
+        if (gramas == null) return 0;
         ValorNutricional info = alimento.getValorNutricional();
         if (info == null) {
             info = nutricaoService.consultar(alimento.getNome());
             alimento.setValorNutricional(info);
         }
-        double fatorPara100g = (quantidadeEmKgOuL * 1000) / 100.0;
+        double fatorPara100g = gramas / 100.0;
         return fatorPara100g * (calorias ? info.getCaloriasPor100g() : info.getProteinasPor100gEmGramas());
     }
 
     // REQ10: relatório de doações por período e categoria, exportado em CSV
     public void exportarRelatorioDoacoesCsv(List<Doacao> todasAsDoacoes, LocalDate inicio, LocalDate fim, CategoriaAlimento categoriaFiltro, String caminhoArquivo) throws IOException {
-        try (FileWriter escritor = new FileWriter(caminhoArquivo)) {
+        try (Writer escritor = new OutputStreamWriter(new FileOutputStream(caminhoArquivo), StandardCharsets.UTF_8)) {
             escritor.write("data_doacao;doador;alimento;categoria;quantidade;unidade;validade\n");
             for (Doacao doacao : todasAsDoacoes) {
                 boolean dentroDoPeriodo = !doacao.getDataDoacao().isBefore(inicio) && !doacao.getDataDoacao().isAfter(fim);
@@ -49,8 +55,8 @@ public class RelatorioService {
                     if (categoriaFiltro != null && item.getAlimento().getCategoria() != categoriaFiltro) continue;
                     escritor.write(String.join(";",
                             doacao.getDataDoacao().toString(),
-                            doacao.getDoador().getNome(),
-                            item.getAlimento().getNome(),
+                            campoCsv(doacao.getDoador().getNome()),
+                            campoCsv(item.getAlimento().getNome()),
                             item.getAlimento().getCategoria().toString(),
                             String.valueOf(item.getQuantidade()),
                             item.getAlimento().getUnidadeMedida().getSigla(),
@@ -59,6 +65,15 @@ public class RelatorioService {
                 }
             }
         }
+    }
+
+    /** Coloca entre aspas campos com ';', aspas ou quebra de linha (padrão CSV), para não deslocar colunas. */
+    private static String campoCsv(String valor) {
+        String s = valor == null ? "" : valor;
+        if (s.contains(";") || s.contains("\"") || s.contains("\n") || s.contains("\r")) {
+            return "\"" + s.replace("\"", "\"\"") + "\"";
+        }
+        return s;
     }
 
     // REQ11: relatório nutricional agregado por instituição no mês

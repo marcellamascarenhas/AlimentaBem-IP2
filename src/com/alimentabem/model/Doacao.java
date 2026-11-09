@@ -8,7 +8,9 @@ import java.util.List;
 import java.util.UUID;
 
 // REQ04: doação vinculada a um doador, composta por itens de doação
-public class Doacao {
+public class Doacao implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
+
     private String id;
     private final Doador doador;
     private final LocalDate dataDoacao;

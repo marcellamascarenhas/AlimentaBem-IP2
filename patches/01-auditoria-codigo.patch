@@ -1,0 +1,1140 @@
+diff --git a/src/com/alimentabem/controller/ControladorDoacao.java b/src/com/alimentabem/controller/ControladorDoacao.java
+index 019ff99..710cbdd 100644
+--- a/src/com/alimentabem/controller/ControladorDoacao.java
++++ b/src/com/alimentabem/controller/ControladorDoacao.java
+@@ -22,6 +22,12 @@ public class ControladorDoacao {
+     // REQ04: registra a doação de um doador cadastrado
+     // REQ15: impede registrar doação sem itens
+     public void registrarDoacao(Doacao doacao) {
++        validarDoacao(doacao);
++        repositorioDoacao.inserir(doacao);
++    }
++
++    /** Valida a doação sem gravá-la (usado pela Fachada antes de dar entrada no estoque). */
++    public void validarDoacao(Doacao doacao) {
+         if (doacao == null) {
+             throw new ValidacaoException("A doação não pode ser nula.");
+         }
+@@ -37,8 +43,6 @@ public class ControladorDoacao {
+         if (repositorioDoador.buscarPorDocumento(doacao.getDoador().getDocumento()) == null) {
+             throw new ValidacaoException("O doador '" + doacao.getDoador().getNome() + "' precisa estar cadastrado no sistema antes de realizar uma doação.");
+         }
+-
+-        repositorioDoacao.inserir(doacao);
+     }
+ 
+     public List<Doacao> listarDoacoes() {
+diff --git a/src/com/alimentabem/controller/ControladorDoador.java b/src/com/alimentabem/controller/ControladorDoador.java
+index 3160d66..f3b24c0 100644
+--- a/src/com/alimentabem/controller/ControladorDoador.java
++++ b/src/com/alimentabem/controller/ControladorDoador.java
+@@ -24,6 +24,13 @@ public class ControladorDoador {
+         if (doador == null) {
+             throw new ValidacaoException("O doador não pode ser nulo.");
+         }
++        // CPF com 11 dígitos e CNPJ com 14 (a tela gráfica já valida; aqui protege também o console)
++        String digitos = doador.getDocumento().replaceAll("\\D", "");
++        int esperado = doador instanceof Empresa ? 14 : 11;
++        if (digitos.length() != esperado) {
++            throw new ValidacaoException((doador instanceof Empresa ? "O CNPJ" : "O CPF")
++                    + " deve conter " + esperado + " dígitos.");
++        }
+         if (repositorio.buscarPorDocumento(doador.getDocumento()) != null) {
+             throw new ElementoJaCadastradoException("Já existe um doador registrado com o documento: " + doador.getDocumento());
+         }
+diff --git a/src/com/alimentabem/controller/Fachada.java b/src/com/alimentabem/controller/Fachada.java
+index a0f2cda..e563bfc 100644
+--- a/src/com/alimentabem/controller/Fachada.java
++++ b/src/com/alimentabem/controller/Fachada.java
+@@ -20,13 +20,23 @@ public class Fachada {
+     private final InstituicaoService instituicaoService;
+     private final DistribuicaoService distribuicaoService;
+ 
++    /** Salva os repositórios em arquivo após cada alteração. */
++    private final ArmazenamentoArquivo armazenamento;
++
++    /** Usa o arquivo de dados padrão (~/.alimentabem/dados.dat ou -Dalimentabem.dados). */
+     public Fachada() {
+-        IRepositorioDoador repoDoador = new RepositorioDoadorMemoria();
+-        IRepositorioDoacao repoDoacao = new RepositorioDoacaoMemoria();
+-        IRepositorioAlimento repoAlimento = new RepositorioAlimentoMemoria();
+-        IRepositorioEstoque repoEstoque = new RepositorioEstoqueMemoria();
+-        IRepositorioInstituicao repoInstituicao = new RepositorioInstituicaoMemoria();
+-        IRepositorioDistribuicao repoDistribuicao = new RepositorioDistribuicaoMemoria();
++        this(ArmazenamentoArquivo.caminhoPadrao());
++    }
++
++    /** @param arquivoDados arquivo onde os dados são salvos; null = somente memória (nada é gravado). */
++    public Fachada(java.nio.file.Path arquivoDados) {
++        this.armazenamento = ArmazenamentoArquivo.carregar(arquivoDados);
++        IRepositorioDoador repoDoador = armazenamento.doadores();
++        IRepositorioDoacao repoDoacao = armazenamento.doacoes();
++        IRepositorioAlimento repoAlimento = armazenamento.alimentos();
++        IRepositorioEstoque repoEstoque = armazenamento.estoque();
++        IRepositorioInstituicao repoInstituicao = armazenamento.instituicoes();
++        IRepositorioDistribuicao repoDistribuicao = armazenamento.distribuicoes();
+ 
+         this.controladorDoador = new ControladorDoador(repoDoador);
+         this.controladorDoacao = new ControladorDoacao(repoDoacao, repoDoador);
+@@ -41,12 +51,13 @@ public class Fachada {
+ 
+     // --- DOADORES ---
+     // REQ01: cadastrar doadores (Pessoa Física / Empresa)
+-    public void cadastrarDoador(Doador doador) { controladorDoador.cadastrarDoador(doador); }
++    public void cadastrarDoador(Doador doador) { controladorDoador.cadastrarDoador(doador); salvar(); }
+     public Doador buscarDoadorPorDocumento(String doc) { return controladorDoador.buscarPorDocumento(doc); }
+     public List<Doador> listarDoadores() { return controladorDoador.listarDoadores(); }
+ 
+     public void atualizarDoador(String documento, String nome, String telefone, String email, String razaoSocial) {
+         controladorDoador.atualizarDoador(documento, nome, telefone, email, razaoSocial);
++        salvar();
+     }
+ 
+     public void removerDoador(String documento) {
+@@ -57,6 +68,7 @@ public class Fachada {
+             }
+         }
+         controladorDoador.removerDoador(documento);
++        salvar();
+     }
+ 
+     // --- DOAÇÕES ---
+@@ -64,25 +76,48 @@ public class Fachada {
+     // REQ15: doação sem itens é rejeitada
+     // REQ19: itens vencidos são rejeitados
+     public void registrarDoacao(Doacao doacao) {
++        // Valida tudo antes de gravar: a doação só é registrada se o estoque aceitar todos os itens.
++        controladorDoacao.validarDoacao(doacao);
++        estoqueService.registrarDoacao(doacao);   // valida as validades (REQ19) e dá entrada nos lotes
+         controladorDoacao.registrarDoacao(doacao);
+-        estoqueService.registrarDoacao(doacao);
++        salvar();
+     }
+     public List<Doacao> listarDoacoes() { return controladorDoacao.listarDoacoes(); }
+ 
+     // --- ALIMENTOS E ESTOQUE ---
+     // REQ03: cadastrar alimentos (nome, categoria, unidade)
+     public Alimento cadastrarAlimento(String nome, CategoriaAlimento cat, UnidadeMedida um) {
+-        return alimentoService.cadastrar(nome, cat, um);
++        return cadastrarAlimento(nome, cat, um, null);
++    }
++    /** pesoPorUnidadeGramas: obrigatório quando a unidade é UNIDADE (peso médio de 1 unidade). */
++    public Alimento cadastrarAlimento(String nome, CategoriaAlimento cat, UnidadeMedida um, Double pesoPorUnidadeGramas) {
++        Alimento a = alimentoService.cadastrar(nome, cat, um, pesoPorUnidadeGramas);
++        salvar();
++        return a;
+     }
+     public Alimento buscarAlimentoPorNome(String nome) { return alimentoService.buscarPorNome(nome); }
+     public List<Alimento> listarAlimentos() { return alimentoService.listarTodos(); }
+ 
+     public void atualizarAlimento(String nome, String novoNome, CategoriaAlimento cat, UnidadeMedida um) {
+         alimentoService.atualizar(nome, novoNome, cat, um);
++        salvar();
++    }
++    public void atualizarAlimento(String nome, String novoNome, CategoriaAlimento cat, UnidadeMedida um,
++                                  Double pesoPorUnidadeGramas) {
++        alimentoService.atualizar(nome, novoNome, cat, um, pesoPorUnidadeGramas);
++        salvar();
+     }
+ 
+     public void removerAlimento(String nome) {
+         alimentoService.remover(nome);
++        salvar();
++    }
++
++    // REQ05: registra calorias/proteínas do alimento (consulta USDA ou digitação manual)
++    public void definirValorNutricional(Alimento alimento, ValorNutricional valor) {
++        if (alimento == null) throw new ValidacaoException("Selecione um alimento.");
++        alimentoService.buscarPorNome(alimento.getNome()).setValorNutricional(valor);
++        salvar();
+     }
+ 
+     // REQ07: estoque por lote, ordenado por data de validade
+@@ -94,7 +129,9 @@ public class Fachada {
+     // REQ02: cadastrar instituição (endereço completado pelo CEP)
+     // REQ14: CEP inválido bloqueia o cadastro
+     public InstituicaoBeneficiaria cadastrarInstituicao(String nome, String cep, int capacidadeMensal) {
+-        return instituicaoService.cadastrar(nome, cep, capacidadeMensal);
++        InstituicaoBeneficiaria inst = instituicaoService.cadastrar(nome, cep, capacidadeMensal);
++        salvar();
++        return inst;
+     }
+     public InstituicaoBeneficiaria buscarInstituicaoPorNome(String nome) {
+         return instituicaoService.buscarPorNome(nome);
+@@ -103,11 +140,13 @@ public class Fachada {
+ 
+     public void atualizarInstituicao(String nome, String novoNome, String novoCep, int novaCapacidade) {
+         instituicaoService.atualizar(nome, novoNome, novoCep, novaCapacidade);
++        salvar();
+     }
+ 
+     // REQ20: não exclui instituição que já tenha distribuições
+     public void removerInstituicao(String nome) {
+         instituicaoService.remover(nome);
++        salvar();
+     }
+ 
+     // --- DISTRIBUIÇÕES ---
+@@ -118,7 +157,16 @@ public class Fachada {
+     // REQ17: respeita a capacidade mensal da instituição
+     // REQ18: lote de validade mais próxima sai primeiro
+     public Distribuicao registrarDistribuicao(InstituicaoBeneficiaria inst, Map<Alimento, Double> itens, int familias, LocalDate data) {
+-        return distribuicaoService.registrarDistribuicao(inst, itens, familias, data);
++        Distribuicao d = distribuicaoService.registrarDistribuicao(inst, itens, familias, data);
++        salvar();
++        return d;
+     }
+     public List<Distribuicao> listarTodasDistribuicoes() { return distribuicaoService.listarTodas(); }
++
++    // --- PERSISTÊNCIA ---
++    /** Grava todos os dados no arquivo (chamado após cada alteração). */
++    private void salvar() { armazenamento.salvar(); }
++
++    /** Arquivo onde os dados ficam salvos (null se estiver só em memória). */
++    public java.nio.file.Path getArquivoDados() { return armazenamento.getArquivo(); }
+ }
+\ No newline at end of file
+diff --git a/src/com/alimentabem/model/Alimento.java b/src/com/alimentabem/model/Alimento.java
+index 2de1088..820dae4 100644
+--- a/src/com/alimentabem/model/Alimento.java
++++ b/src/com/alimentabem/model/Alimento.java
+@@ -4,12 +4,15 @@ import java.util.UUID;
+ 
+ // REQ03: alimento: nome, categoria e unidade de medida
+ // REQ05: guarda o valor nutricional obtido da API USDA
+-public class Alimento {
++public class Alimento implements java.io.Serializable {
++    private static final long serialVersionUID = 1L;
++
+     private String id;
+     private String nome;
+     private CategoriaAlimento categoria;
+     private UnidadeMedida unidadeMedida;
+     private ValorNutricional valorNutricional;
++    private Double pesoPorUnidadeGramas; // null em dados antigos ou quando a unidade é kg/L
+ 
+     public Alimento(String nome, CategoriaAlimento categoria, UnidadeMedida unidadeMedida) {
+         this.id = UUID.randomUUID().toString().substring(0, 8); 
+@@ -25,6 +28,33 @@ public class Alimento {
+     public CategoriaAlimento getCategoria() { return categoria; }
+     public UnidadeMedida getUnidadeMedida() { return unidadeMedida; }
+     public ValorNutricional getValorNutricional() { return valorNutricional; }
++
++    /** Peso médio de 1 unidade, em gramas (só faz sentido quando a unidade de medida é UNIDADE). */
++    public Double getPesoPorUnidadeGramas() { return pesoPorUnidadeGramas; }
++
++    public void setPesoPorUnidadeGramas(Double gramas) {
++        if (gramas != null && (gramas.isNaN() || gramas <= 0)) {
++            throw new IllegalArgumentException("O peso por unidade deve ser maior que zero.");
++        }
++        this.pesoPorUnidadeGramas = gramas;
++    }
++
++    /**
++     * REQ06/REQ11: converte uma quantidade deste alimento em gramas, para o cálculo nutricional.
++     * kg → ×1000; L → ×1000 (aproximação de 1 g/ml); unidade → × peso por unidade.
++     * Devolve null quando não dá para calcular (unidade sem peso cadastrado).
++     */
++    public Double gramasPara(double quantidade) {
++        switch (unidadeMedida) {
++            case QUILOGRAMA:
++            case LITRO:
++                return quantidade * 1000.0;
++            case UNIDADE:
++                return pesoPorUnidadeGramas == null ? null : quantidade * pesoPorUnidadeGramas;
++            default:
++                return null;
++        }
++    }
+     public void setValorNutricional(ValorNutricional valorNutricional) { this.valorNutricional = valorNutricional; }
+ 
+     public void setNome(String nome) {
+diff --git a/src/com/alimentabem/model/Distribuicao.java b/src/com/alimentabem/model/Distribuicao.java
+index e3f47a4..432e3a0 100644
+--- a/src/com/alimentabem/model/Distribuicao.java
++++ b/src/com/alimentabem/model/Distribuicao.java
+@@ -8,7 +8,9 @@ import java.util.List;
+ import java.util.UUID;
+ 
+ // REQ08: distribuição para uma instituição beneficiária com os itens retirados do estoque
+-public class Distribuicao {
++public class Distribuicao implements java.io.Serializable {
++    private static final long serialVersionUID = 1L;
++
+     private String id;
+     private final InstituicaoBeneficiaria instituicao;
+     private final LocalDate dataDistribuicao;
+diff --git a/src/com/alimentabem/model/Doacao.java b/src/com/alimentabem/model/Doacao.java
+index da2631c..2237ff5 100644
+--- a/src/com/alimentabem/model/Doacao.java
++++ b/src/com/alimentabem/model/Doacao.java
+@@ -8,7 +8,9 @@ import java.util.List;
+ import java.util.UUID;
+ 
+ // REQ04: doação vinculada a um doador, composta por itens de doação
+-public class Doacao {
++public class Doacao implements java.io.Serializable {
++    private static final long serialVersionUID = 1L;
++
+     private String id;
+     private final Doador doador;
+     private final LocalDate dataDoacao;
+diff --git a/src/com/alimentabem/model/Doador.java b/src/com/alimentabem/model/Doador.java
+index 27be29f..b631245 100644
+--- a/src/com/alimentabem/model/Doador.java
++++ b/src/com/alimentabem/model/Doador.java
+@@ -1,7 +1,9 @@
+ package com.alimentabem.model;
+ 
+ // REQ01: base da herança de doadores (Pessoa Física e Empresa)
+-public abstract class Doador {
++public abstract class Doador implements java.io.Serializable {
++    private static final long serialVersionUID = 1L;
++
+     private String nome;
+     private String telefone;
+     private String email;
+diff --git a/src/com/alimentabem/model/Empresa.java b/src/com/alimentabem/model/Empresa.java
+index a488e4b..c2a6a87 100644
+--- a/src/com/alimentabem/model/Empresa.java
++++ b/src/com/alimentabem/model/Empresa.java
+@@ -2,6 +2,8 @@ package com.alimentabem.model;
+ 
+ // REQ01: doador Empresa (possui CNPJ e razão social)
+ public class Empresa extends Doador {
++    private static final long serialVersionUID = 1L;
++
+     private final String cnpj;
+     private String razaoSocial;
+ 
+diff --git a/src/com/alimentabem/model/Endereco.java b/src/com/alimentabem/model/Endereco.java
+index e5051d4..98b5e3c 100644
+--- a/src/com/alimentabem/model/Endereco.java
++++ b/src/com/alimentabem/model/Endereco.java
+@@ -1,7 +1,9 @@
+ package com.alimentabem.model;
+ 
+ // REQ02: endereço preenchido automaticamente a partir do CEP (BrasilAPI)
+-public class Endereco {
++public class Endereco implements java.io.Serializable {
++    private static final long serialVersionUID = 1L;
++
+     private String cep;
+     private String rua;
+     private String bairro;
+diff --git a/src/com/alimentabem/model/InstituicaoBeneficiaria.java b/src/com/alimentabem/model/InstituicaoBeneficiaria.java
+index a430b85..f0e8ec1 100644
+--- a/src/com/alimentabem/model/InstituicaoBeneficiaria.java
++++ b/src/com/alimentabem/model/InstituicaoBeneficiaria.java
+@@ -3,7 +3,9 @@ package com.alimentabem.model;
+ import java.util.UUID;
+ 
+ // REQ02: instituição beneficiária: nome, CEP, endereço e capacidade mensal de famílias
+-public class InstituicaoBeneficiaria {
++public class InstituicaoBeneficiaria implements java.io.Serializable {
++    private static final long serialVersionUID = 1L;
++
+     private String id;
+     private String nome;
+     private String cep;
+diff --git a/src/com/alimentabem/model/ItemDistribuicao.java b/src/com/alimentabem/model/ItemDistribuicao.java
+index 3e2b561..c94cafe 100644
+--- a/src/com/alimentabem/model/ItemDistribuicao.java
++++ b/src/com/alimentabem/model/ItemDistribuicao.java
+@@ -1,7 +1,9 @@
+ package com.alimentabem.model;
+ 
+ // REQ08: item retirado do estoque: lote de origem + quantidade
+-public class ItemDistribuicao {
++public class ItemDistribuicao implements java.io.Serializable {
++    private static final long serialVersionUID = 1L;
++
+     private final LoteEstoque lote;
+     private final double quantidadeRetirada;
+ 
+diff --git a/src/com/alimentabem/model/ItemDoacao.java b/src/com/alimentabem/model/ItemDoacao.java
+index ac3577a..139cebc 100644
+--- a/src/com/alimentabem/model/ItemDoacao.java
++++ b/src/com/alimentabem/model/ItemDoacao.java
+@@ -3,7 +3,9 @@ package com.alimentabem.model;
+ import java.time.LocalDate;
+ 
+ // REQ04: item de doação: alimento, quantidade e data de validade
+-public class ItemDoacao {
++public class ItemDoacao implements java.io.Serializable {
++    private static final long serialVersionUID = 1L;
++
+     private final Alimento alimento;
+     private final double quantidade;
+     private final LocalDate dataValidade;
+diff --git a/src/com/alimentabem/model/LoteEstoque.java b/src/com/alimentabem/model/LoteEstoque.java
+index 947097a..8fa10b5 100644
+--- a/src/com/alimentabem/model/LoteEstoque.java
++++ b/src/com/alimentabem/model/LoteEstoque.java
+@@ -5,7 +5,12 @@ import java.time.LocalDate;
+ import java.util.UUID;
+ 
+ // REQ07: lote de estoque (um por alimento + validade), base do controle por lote
+-public class LoteEstoque {
++public class LoteEstoque implements java.io.Serializable {
++    private static final long serialVersionUID = 1L;
++
++    /** Margem para comparações de quantidades em ponto flutuante. */
++    public static final double TOLERANCIA = 1e-9;
++
+     private final String id;
+     private final Alimento alimento;
+     private final LocalDate dataValidade;
+@@ -57,12 +62,16 @@ public class LoteEstoque {
+                 "O lote de " + alimento.getNome() + " venceu em " + dataValidade + " e não pode ser distribuído (REQ13).");
+         }
+ 
+-        if (quantidade > quantidadeDisponivel) {
++        // tolerância para erros de arredondamento de ponto flutuante (ex.: 0.1 + 0.2)
++        if (quantidade > quantidadeDisponivel + TOLERANCIA) {
+             throw new ValidacaoException(
+                 "Quantidade solicitada (" + quantidade + ") excede a quantidade disponível (" + quantidadeDisponivel + ") no lote de " + alimento.getNome() + " com validade em " + dataValidade + ".");
+         }
+ 
+         this.quantidadeDisponivel -= quantidade;
++        if (Math.abs(this.quantidadeDisponivel) < TOLERANCIA) {
++            this.quantidadeDisponivel = 0; // evita saldos residuais como 2.7E-17
++        }
+     }
+ 
+     @Override
+diff --git a/src/com/alimentabem/model/PessoaFisica.java b/src/com/alimentabem/model/PessoaFisica.java
+index 2fdaf87..6164d20 100644
+--- a/src/com/alimentabem/model/PessoaFisica.java
++++ b/src/com/alimentabem/model/PessoaFisica.java
+@@ -2,6 +2,8 @@ package com.alimentabem.model;
+ 
+ // REQ01: doador Pessoa Física (identificado por CPF)
+ public class PessoaFisica extends Doador {
++    private static final long serialVersionUID = 1L;
++
+     private final String cpf;
+     
+     public PessoaFisica(String nome, String telefone, String email, String cpf) {
+diff --git a/src/com/alimentabem/model/ValorNutricional.java b/src/com/alimentabem/model/ValorNutricional.java
+index ce903f7..e58d9d6 100644
+--- a/src/com/alimentabem/model/ValorNutricional.java
++++ b/src/com/alimentabem/model/ValorNutricional.java
+@@ -1,7 +1,9 @@
+ package com.alimentabem.model;
+ 
+ // REQ05: calorias e proteínas por 100g (fonte: USDA FoodData Central)
+-public class ValorNutricional {
++public class ValorNutricional implements java.io.Serializable {
++    private static final long serialVersionUID = 1L;
++
+     private final double caloriasPor100g;
+     private final double proteinasPor100gEmGramas;
+     private final String fonte;
+diff --git a/b/src/com/alimentabem/repository/ArmazenamentoArquivo.java b/src/com/alimentabem/repository/ArmazenamentoArquivo.java
+new file mode 100644
+index 0000000..93b7118
+--- /dev/null
++++ b/src/com/alimentabem/repository/ArmazenamentoArquivo.java
+@@ -0,0 +1,109 @@
++package com.alimentabem.repository;
++
++import java.io.*;
++import java.nio.file.*;
++import java.time.LocalDateTime;
++import java.time.format.DateTimeFormatter;
++
++/**
++ * Guarda os repositórios em memória num arquivo, para os dados sobreviverem ao reinício.
++ *
++ * Os seis repositórios são gravados juntos, num único fluxo de serialização: assim um mesmo
++ * Alimento (ou Doador, ou Lote) continua sendo o MESMO objeto no catálogo, nos lotes, nas doações
++ * e nas distribuições depois de carregar o arquivo.
++ *
++ * Local padrão: pasta do usuário, em .alimentabem/dados.dat
++ * (pode ser trocado com -Dalimentabem.dados=caminho/arquivo.dat).
++ */
++public final class ArmazenamentoArquivo {
++
++    /** Conteúdo gravado no arquivo. */
++    private static final class Dados implements Serializable {
++        private static final long serialVersionUID = 1L;
++        final RepositorioDoadorMemoria doadores = new RepositorioDoadorMemoria();
++        final RepositorioDoacaoMemoria doacoes = new RepositorioDoacaoMemoria();
++        final RepositorioAlimentoMemoria alimentos = new RepositorioAlimentoMemoria();
++        final RepositorioEstoqueMemoria estoque = new RepositorioEstoqueMemoria();
++        final RepositorioInstituicaoMemoria instituicoes = new RepositorioInstituicaoMemoria();
++        final RepositorioDistribuicaoMemoria distribuicoes = new RepositorioDistribuicaoMemoria();
++    }
++
++    // Só aceita classes do próprio sistema e do JDK ao ler o arquivo (proteção contra arquivos adulterados)
++    private static final ObjectInputFilter FILTRO = ObjectInputFilter.Config.createFilter(
++            "maxdepth=50;com.alimentabem.**;java.util.*;java.lang.*;java.time.*;!*");
++
++    private final Path arquivo;   // null = somente memória (sem gravar)
++    private final Dados dados;
++
++    private ArmazenamentoArquivo(Path arquivo, Dados dados) {
++        this.arquivo = arquivo;
++        this.dados = dados;
++    }
++
++    public static Path caminhoPadrao() {
++        String prop = System.getProperty("alimentabem.dados");
++        if (prop != null && !prop.isBlank()) return Paths.get(prop);
++        return Paths.get(System.getProperty("user.home"), ".alimentabem", "dados.dat");
++    }
++
++    /** Armazenamento que não grava nada (útil para testes). */
++    public static ArmazenamentoArquivo emMemoria() {
++        return new ArmazenamentoArquivo(null, new Dados());
++    }
++
++    /**
++     * Carrega o arquivo se ele existir; senão começa vazio.
++     * Se o arquivo estiver ilegível, ele é preservado com outro nome e o sistema começa vazio.
++     */
++    public static ArmazenamentoArquivo carregar(Path arquivo) {
++        if (arquivo == null) return emMemoria();
++        if (!Files.exists(arquivo)) return new ArmazenamentoArquivo(arquivo, new Dados());
++        try (ObjectInputStream in = new ObjectInputStream(new BufferedInputStream(Files.newInputStream(arquivo)))) {
++            in.setObjectInputFilter(FILTRO);
++            Object lido = in.readObject();
++            if (!(lido instanceof Dados)) throw new InvalidClassException("Conteúdo inesperado no arquivo de dados.");
++            return new ArmazenamentoArquivo(arquivo, (Dados) lido);
++        } catch (IOException | ClassNotFoundException | RuntimeException e) {
++            Path copia = arquivo.resolveSibling(arquivo.getFileName() + ".ilegivel-"
++                    + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")));
++            try {
++                Files.move(arquivo, copia);
++            } catch (IOException ignorada) {
++                // se nem mover for possível, segue com dados vazios sem sobrescrever nada agora
++            }
++            System.err.println("AlimentaBem: não foi possível ler " + arquivo + " (" + e.getMessage()
++                    + "). O arquivo foi preservado como " + copia + " e o sistema iniciou sem dados.");
++            return new ArmazenamentoArquivo(arquivo, new Dados());
++        }
++    }
++
++    /** Grava tudo. Escreve num arquivo temporário e troca no final, para nunca deixar o arquivo pela metade. */
++    public void salvar() {
++        if (arquivo == null) return;
++        try {
++            Path pasta = arquivo.toAbsolutePath().getParent();
++            if (pasta != null) Files.createDirectories(pasta);
++            Path tmp = arquivo.resolveSibling(arquivo.getFileName() + ".tmp");
++            try (ObjectOutputStream out = new ObjectOutputStream(new BufferedOutputStream(Files.newOutputStream(tmp)))) {
++                out.writeObject(dados);
++            }
++            try {
++                Files.move(tmp, arquivo, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
++            } catch (AtomicMoveNotSupportedException e) {
++                Files.move(tmp, arquivo, StandardCopyOption.REPLACE_EXISTING);
++            }
++        } catch (IOException e) {
++            throw new IllegalStateException("A operação foi feita, mas não foi possível salvar os dados em "
++                    + arquivo + ": " + e.getMessage(), e);
++        }
++    }
++
++    public Path getArquivo() { return arquivo; }
++
++    public IRepositorioDoador doadores() { return dados.doadores; }
++    public IRepositorioDoacao doacoes() { return dados.doacoes; }
++    public IRepositorioAlimento alimentos() { return dados.alimentos; }
++    public IRepositorioEstoque estoque() { return dados.estoque; }
++    public IRepositorioInstituicao instituicoes() { return dados.instituicoes; }
++    public IRepositorioDistribuicao distribuicoes() { return dados.distribuicoes; }
++}
+diff --git a/src/com/alimentabem/repository/RepositorioAlimentoMemoria.java b/src/com/alimentabem/repository/RepositorioAlimentoMemoria.java
+index 89257d1..5dc81e3 100644
+--- a/src/com/alimentabem/repository/RepositorioAlimentoMemoria.java
++++ b/src/com/alimentabem/repository/RepositorioAlimentoMemoria.java
+@@ -6,7 +6,9 @@ import java.util.ArrayList;
+ import java.util.Collections;
+ import java.util.List;
+ 
+-public class RepositorioAlimentoMemoria implements IRepositorioAlimento {
++public class RepositorioAlimentoMemoria implements IRepositorioAlimento, java.io.Serializable {
++    private static final long serialVersionUID = 1L;
++
+     private final List<Alimento> alimentos = new ArrayList<>();
+ 
+     @Override
+diff --git a/src/com/alimentabem/repository/RepositorioDistribuicaoMemoria.java b/src/com/alimentabem/repository/RepositorioDistribuicaoMemoria.java
+index 3e032cb..df99757 100644
+--- a/src/com/alimentabem/repository/RepositorioDistribuicaoMemoria.java
++++ b/src/com/alimentabem/repository/RepositorioDistribuicaoMemoria.java
+@@ -5,7 +5,9 @@ import java.util.ArrayList;
+ import java.util.List;
+ import java.util.stream.Collectors;
+ 
+-public class RepositorioDistribuicaoMemoria implements IRepositorioDistribuicao {
++public class RepositorioDistribuicaoMemoria implements IRepositorioDistribuicao, java.io.Serializable {
++    private static final long serialVersionUID = 1L;
++
+     private final List<Distribuicao> distribuicoes = new ArrayList<>();
+ 
+     @Override
+diff --git a/src/com/alimentabem/repository/RepositorioDoacaoMemoria.java b/src/com/alimentabem/repository/RepositorioDoacaoMemoria.java
+index 6cdc822..3ad3339 100644
+--- a/src/com/alimentabem/repository/RepositorioDoacaoMemoria.java
++++ b/src/com/alimentabem/repository/RepositorioDoacaoMemoria.java
+@@ -4,7 +4,9 @@ import com.alimentabem.model.Doacao;
+ import java.util.ArrayList;
+ import java.util.List;
+ 
+-public class RepositorioDoacaoMemoria implements IRepositorioDoacao {
++public class RepositorioDoacaoMemoria implements IRepositorioDoacao, java.io.Serializable {
++    private static final long serialVersionUID = 1L;
++
+     private final List<Doacao> doacoes = new ArrayList<>();
+ 
+     @Override
+diff --git a/src/com/alimentabem/repository/RepositorioDoadorMemoria.java b/src/com/alimentabem/repository/RepositorioDoadorMemoria.java
+index 8784c43..086f23e 100644
+--- a/src/com/alimentabem/repository/RepositorioDoadorMemoria.java
++++ b/src/com/alimentabem/repository/RepositorioDoadorMemoria.java
+@@ -6,7 +6,9 @@ import java.util.ArrayList;
+ import java.util.Collections;
+ import java.util.List;
+ 
+-public class RepositorioDoadorMemoria implements IRepositorioDoador {
++public class RepositorioDoadorMemoria implements IRepositorioDoador, java.io.Serializable {
++    private static final long serialVersionUID = 1L;
++
+     private final List<Doador> doadores = new ArrayList<>();
+ 
+     @Override
+diff --git a/src/com/alimentabem/repository/RepositorioEstoqueMemoria.java b/src/com/alimentabem/repository/RepositorioEstoqueMemoria.java
+index 51405be..3f65458 100644
+--- a/src/com/alimentabem/repository/RepositorioEstoqueMemoria.java
++++ b/src/com/alimentabem/repository/RepositorioEstoqueMemoria.java
+@@ -8,7 +8,9 @@ import java.util.Collections;
+ import java.util.List;
+ import java.util.stream.Collectors;
+ 
+-public class RepositorioEstoqueMemoria implements IRepositorioEstoque {
++public class RepositorioEstoqueMemoria implements IRepositorioEstoque, java.io.Serializable {
++    private static final long serialVersionUID = 1L;
++
+     private final List<LoteEstoque> lotes = new ArrayList<>();
+ 
+     @Override
+diff --git a/src/com/alimentabem/repository/RepositorioInstituicaoMemoria.java b/src/com/alimentabem/repository/RepositorioInstituicaoMemoria.java
+index c7420b4..6aef1fd 100644
+--- a/src/com/alimentabem/repository/RepositorioInstituicaoMemoria.java
++++ b/src/com/alimentabem/repository/RepositorioInstituicaoMemoria.java
+@@ -4,7 +4,9 @@ import com.alimentabem.model.InstituicaoBeneficiaria;
+ import java.util.ArrayList;
+ import java.util.List;
+ 
+-public class RepositorioInstituicaoMemoria implements IRepositorioInstituicao {
++public class RepositorioInstituicaoMemoria implements IRepositorioInstituicao, java.io.Serializable {
++    private static final long serialVersionUID = 1L;
++
+     private final List<InstituicaoBeneficiaria> instituicoes = new ArrayList<>();
+ 
+     @Override
+diff --git a/src/com/alimentabem/service/AlimentoService.java b/src/com/alimentabem/service/AlimentoService.java
+index 4e20a96..32095dd 100644
+--- a/src/com/alimentabem/service/AlimentoService.java
++++ b/src/com/alimentabem/service/AlimentoService.java
+@@ -7,8 +7,11 @@ import java.util.List;
+ 
+ public interface AlimentoService {
+     Alimento cadastrar(String nome, CategoriaAlimento categoria, UnidadeMedida unidadeMedida);
++    /** pesoPorUnidadeGramas é obrigatório (> 0) quando a unidade é UNIDADE; ignorado para kg/L. */
++    Alimento cadastrar(String nome, CategoriaAlimento categoria, UnidadeMedida unidadeMedida, Double pesoPorUnidadeGramas);
+     Alimento buscarPorNome(String nome);
+     List<Alimento> listarTodos();
+     void atualizar(String nome, String novoNome, CategoriaAlimento categoria, UnidadeMedida unidade);
++    void atualizar(String nome, String novoNome, CategoriaAlimento categoria, UnidadeMedida unidade, Double pesoPorUnidadeGramas);
+     void remover(String nome);
+ }
+\ No newline at end of file
+diff --git a/src/com/alimentabem/service/AlimentoServiceImpl.java b/src/com/alimentabem/service/AlimentoServiceImpl.java
+index 7ef918f..8bb64d1 100644
+--- a/src/com/alimentabem/service/AlimentoServiceImpl.java
++++ b/src/com/alimentabem/service/AlimentoServiceImpl.java
+@@ -26,13 +26,21 @@ public class AlimentoServiceImpl implements AlimentoService {
+     // REQ03: cadastro de alimento sem nome duplicado
+     @Override
+     public Alimento cadastrar(String nome, CategoriaAlimento categoria, UnidadeMedida unidadeMedida) {
++        return cadastrar(nome, categoria, unidadeMedida, null);
++    }
++
++    // REQ06: alimentos contados em UNIDADE precisam do peso médio de 1 unidade para o cálculo nutricional
++    @Override
++    public Alimento cadastrar(String nome, CategoriaAlimento categoria, UnidadeMedida unidadeMedida, Double pesoPorUnidadeGramas) {
+         if (nome == null || nome.isBlank()) {
+             throw new ValidacaoException("O nome do alimento não pode ser nulo ou vazio.");
+         }
+         if (repositorio.buscarPorNome(nome) != null) {
+             throw new ElementoJaCadastradoException("Já existe um alimento cadastrado com o nome: " + nome);
+         }
++        Double peso = validarPeso(unidadeMedida, pesoPorUnidadeGramas);
+         Alimento alimento = new Alimento(nome, categoria, unidadeMedida);
++        alimento.setPesoPorUnidadeGramas(peso);
+         repositorio.inserir(alimento);
+         return alimento;
+     }
+@@ -56,7 +64,22 @@ public class AlimentoServiceImpl implements AlimentoService {
+ 
+     @Override
+     public void atualizar(String nomeAntigo, String novoNome, CategoriaAlimento novaCategoria, UnidadeMedida novaUnidade) {
++        // mantém o peso atual
++        atualizar(nomeAntigo, novoNome, novaCategoria, novaUnidade, buscarPorNome(nomeAntigo).getPesoPorUnidadeGramas());
++    }
++
++    @Override
++    public void atualizar(String nomeAntigo, String novoNome, CategoriaAlimento novaCategoria, UnidadeMedida novaUnidade,
++                          Double pesoPorUnidadeGramas) {
+         Alimento existente = buscarPorNome(nomeAntigo);
++        UnidadeMedida unidadeFinal = novaUnidade != null ? novaUnidade : existente.getUnidadeMedida();
++        Double peso = validarPeso(unidadeFinal, pesoPorUnidadeGramas);
++        // Trocar a unidade com lotes em estoque mudaria o significado das quantidades (ex.: 2 L viram 2 un)
++        if (novaUnidade != null && novaUnidade != existente.getUnidadeMedida()
++                && !repositorioEstoque.buscarPorAlimento(existente).isEmpty()) {
++            throw new ValidacaoException("Não é possível alterar a unidade de medida de '" + existente.getNome()
++                    + "': já existem lotes registrados com esse alimento.");
++        }
+         if (novoNome != null && !novoNome.isBlank() && !novoNome.trim().equalsIgnoreCase(existente.getNome())) {
+             if (repositorio.buscarPorNome(novoNome.trim()) != null) {
+                 throw new ElementoJaCadastradoException("Já existe um alimento cadastrado com o nome: " + novoNome.trim());
+@@ -69,9 +92,20 @@ public class AlimentoServiceImpl implements AlimentoService {
+         if (novaUnidade != null) {
+             existente.setUnidadeMedida(novaUnidade);
+         }
++        existente.setPesoPorUnidadeGramas(peso);
+         repositorio.atualizar(existente);
+     }
+ 
++    /** Peso obrigatório e positivo para UNIDADE; para kg/L não se aplica (fica null). */
++    private static Double validarPeso(UnidadeMedida unidade, Double peso) {
++        if (unidade != UnidadeMedida.UNIDADE) return null;
++        if (peso == null || peso.isNaN() || peso <= 0) {
++            throw new ValidacaoException("Informe o peso médio de 1 unidade em gramas (maior que zero). "
++                    + "Ele é usado para calcular calorias e proteínas.");
++        }
++        return peso;
++    }
++
+     @Override
+     public void remover(String nome) {
+         Alimento alimento = buscarPorNome(nome);
+diff --git a/src/com/alimentabem/service/DistribuicaoServiceImpl.java b/src/com/alimentabem/service/DistribuicaoServiceImpl.java
+index b736712..09709ef 100644
+--- a/src/com/alimentabem/service/DistribuicaoServiceImpl.java
++++ b/src/com/alimentabem/service/DistribuicaoServiceImpl.java
+@@ -37,6 +37,9 @@ public class DistribuicaoServiceImpl implements DistribuicaoService {
+         if (data == null) {
+             throw new ValidacaoException("A data da distribuição é obrigatória.");
+         }
++        if (data.isAfter(LocalDate.now())) {
++            throw new ValidacaoException("A data da distribuição não pode estar no futuro.");
++        }
+         if (familiasAtendidas <= 0) {
+             throw new ValidacaoException("O número de famílias atendidas deve ser maior que zero.");
+         }
+@@ -71,13 +74,13 @@ public class DistribuicaoServiceImpl implements DistribuicaoService {
+                     quantidadeVencida += lote.getQuantidadeDisponivel();
+                     continue;
+                 }
+-                if (restante <= 0) break;
++                if (restante <= LoteEstoque.TOLERANCIA) break;
+                 double qtdDoLote = Math.min(lote.getQuantidadeDisponivel(), restante); // REQ18: FIFO
+                 plano.add(new ItemDistribuicao(lote, qtdDoLote));
+                 restante -= qtdDoLote;
+             }
+ 
+-            if (restante > 0) {                                  // REQ16: Validação de falta no estoque
++            if (restante > LoteEstoque.TOLERANCIA) {             // REQ16: Validação de falta no estoque
+                 String sigla = alimento.getUnidadeMedida() != null ? alimento.getUnidadeMedida().getSigla() : "";
+                 String aviso = quantidadeVencida > 0
+                         ? " Existem " + quantidadeVencida + " " + sigla + " em lotes vencidos, que não podem ser distribuídos (REQ13)."
+diff --git a/src/com/alimentabem/service/EstoqueService.java b/src/com/alimentabem/service/EstoqueService.java
+index 74cc798..8ea469a 100644
+--- a/src/com/alimentabem/service/EstoqueService.java
++++ b/src/com/alimentabem/service/EstoqueService.java
+@@ -132,13 +132,13 @@ public class EstoqueService {
+         candidatos.sort(Comparator.comparing(LoteEstoque::getDataValidade)); // REQ18: ordenação FIFO por vencimento
+ 
+         for (LoteEstoque lote : candidatos) {
+-            if (restante <= 0) break;
++            if (restante <= LoteEstoque.TOLERANCIA) break;
+             double retirarDesteLote = Math.min(restante, lote.getQuantidadeDisponivel());
+             sugestoes.add(new SugestaoRetirada(lote, retirarDesteLote));
+             restante -= retirarDesteLote;
+         }
+ 
+-        if (restante > 0) {
++        if (restante > LoteEstoque.TOLERANCIA) {
+             String sigla = alimento.getUnidadeMedida() != null ? alimento.getUnidadeMedida().getSigla() : "";
+             String aviso = quantidadeVencida > 0
+                     ? " Existem " + quantidadeVencida + " " + sigla + " em lotes vencidos, que não podem ser distribuídos (REQ13)."
+diff --git a/src/com/alimentabem/service/InstituicaoServiceImpl.java b/src/com/alimentabem/service/InstituicaoServiceImpl.java
+index 96b359f..1dc425e 100644
+--- a/src/com/alimentabem/service/InstituicaoServiceImpl.java
++++ b/src/com/alimentabem/service/InstituicaoServiceImpl.java
+@@ -58,15 +58,26 @@ public class InstituicaoServiceImpl implements InstituicaoService {
+     public void atualizar(String nome, String novoNome, String novoCep, int novaCapacidade) {
+         InstituicaoBeneficiaria existente = buscarPorNome(nome);
+ 
+-        if (novoNome != null && !novoNome.isBlank()) {
+-            existente.setNome(novoNome);
++        boolean renomeando = novoNome != null && !novoNome.isBlank();
++        if (renomeando && !novoNome.trim().equalsIgnoreCase(existente.getNome())
++                && repoInstituicao.buscarPorNome(novoNome.trim()) != null) {
++            throw new ElementoJaCadastradoException("Já existe uma instituição cadastrada com o nome: " + novoNome.trim());
+         }
+ 
+-        // REQ14: Se o CEP for alterado, revalida na API de CEP antes de atualizar
++        // REQ14: Se o CEP for alterado, revalida na API de CEP antes de alterar qualquer campo
++        Endereco novoEndereco = null;
++        String cepLimpo = null;
+         if (novoCep != null && !novoCep.isBlank()) {
+-            String cepLimpo = novoCep.replaceAll("\\D", "");
+-            Endereco end = viaCepService.buscarEnderecoPorCep(cepLimpo);
+-            existente.setEndereco(end);
++            cepLimpo = novoCep.replaceAll("\\D", "");
++            novoEndereco = viaCepService.buscarEnderecoPorCep(cepLimpo);
++        }
++
++        if (renomeando) {
++            existente.setNome(novoNome);
++        }
++        if (novoEndereco != null) {
++            existente.setCep(cepLimpo);          // antes só o endereço era trocado e o CEP ficava o antigo
++            existente.setEndereco(novoEndereco);
+         }
+ 
+         if (novaCapacidade > 0) {
+diff --git a/src/com/alimentabem/service/NutricaoService.java b/src/com/alimentabem/service/NutricaoService.java
+index 21e1cfe..c32275d 100644
+--- a/src/com/alimentabem/service/NutricaoService.java
++++ b/src/com/alimentabem/service/NutricaoService.java
+@@ -17,7 +17,8 @@ public class NutricaoService {
+     private static final String API_KEY = "DEMO_KEY";
+     private static final String BASE_URL = "https://api.nal.usda.gov/fdc/v1/foods/search";
+     
+-    private final HttpClient httpClient = HttpClient.newHttpClient();
++    private final HttpClient httpClient = HttpClient.newBuilder()
++            .connectTimeout(java.time.Duration.ofSeconds(6)).build();
+     
+     // cache para não repetir consultas
+     private final Map<String, ValorNutricional> cache = new HashMap<>();
+@@ -34,7 +35,8 @@ public class NutricaoService {
+         String query = URLEncoder.encode(nomeAlimento, StandardCharsets.UTF_8);
+         String url = BASE_URL + "?api_key=" + API_KEY + "&query=" + query + "&pageSize=1";
+         
+-        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url)).GET().build();
++        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url))
++                .timeout(java.time.Duration.ofSeconds(12)).GET().build();
+         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+         
+         if (response.statusCode() != 200) {
+diff --git a/src/com/alimentabem/service/RelatorioService.java b/src/com/alimentabem/service/RelatorioService.java
+index 943633b..4d09f59 100644
+--- a/src/com/alimentabem/service/RelatorioService.java
++++ b/src/com/alimentabem/service/RelatorioService.java
+@@ -1,8 +1,11 @@
+ package com.alimentabem.service;
+ 
+ import com.alimentabem.model.*;
+-import java.io.FileWriter;
++import java.io.FileOutputStream;
+ import java.io.IOException;
++import java.io.OutputStreamWriter;
++import java.io.Writer;
++import java.nio.charset.StandardCharsets;
+ import java.time.LocalDate;
+ import java.time.YearMonth;
+ import java.util.HashMap;
+@@ -29,18 +32,21 @@ public class RelatorioService {
+ 
+     private double calcularContribuicao(Alimento alimento, double quantidadeEmKgOuL, boolean calorias)
+             throws IOException, InterruptedException {
++        // kg/L → ×1000 g; unidade → × peso por unidade. Sem peso cadastrado, o item não entra no total.
++        Double gramas = alimento.gramasPara(quantidadeEmKgOuL);
++        if (gramas == null) return 0;
+         ValorNutricional info = alimento.getValorNutricional();
+         if (info == null) {
+             info = nutricaoService.consultar(alimento.getNome());
+             alimento.setValorNutricional(info);
+         }
+-        double fatorPara100g = (quantidadeEmKgOuL * 1000) / 100.0;
++        double fatorPara100g = gramas / 100.0;
+         return fatorPara100g * (calorias ? info.getCaloriasPor100g() : info.getProteinasPor100gEmGramas());
+     }
+ 
+     // REQ10: relatório de doações por período e categoria, exportado em CSV
+     public void exportarRelatorioDoacoesCsv(List<Doacao> todasAsDoacoes, LocalDate inicio, LocalDate fim, CategoriaAlimento categoriaFiltro, String caminhoArquivo) throws IOException {
+-        try (FileWriter escritor = new FileWriter(caminhoArquivo)) {
++        try (Writer escritor = new OutputStreamWriter(new FileOutputStream(caminhoArquivo), StandardCharsets.UTF_8)) {
+             escritor.write("data_doacao;doador;alimento;categoria;quantidade;unidade;validade\n");
+             for (Doacao doacao : todasAsDoacoes) {
+                 boolean dentroDoPeriodo = !doacao.getDataDoacao().isBefore(inicio) && !doacao.getDataDoacao().isAfter(fim);
+@@ -49,8 +55,8 @@ public class RelatorioService {
+                     if (categoriaFiltro != null && item.getAlimento().getCategoria() != categoriaFiltro) continue;
+                     escritor.write(String.join(";",
+                             doacao.getDataDoacao().toString(),
+-                            doacao.getDoador().getNome(),
+-                            item.getAlimento().getNome(),
++                            campoCsv(doacao.getDoador().getNome()),
++                            campoCsv(item.getAlimento().getNome()),
+                             item.getAlimento().getCategoria().toString(),
+                             String.valueOf(item.getQuantidade()),
+                             item.getAlimento().getUnidadeMedida().getSigla(),
+@@ -61,6 +67,15 @@ public class RelatorioService {
+         }
+     }
+ 
++    /** Coloca entre aspas campos com ';', aspas ou quebra de linha (padrão CSV), para não deslocar colunas. */
++    private static String campoCsv(String valor) {
++        String s = valor == null ? "" : valor;
++        if (s.contains(";") || s.contains("\"") || s.contains("\n") || s.contains("\r")) {
++            return "\"" + s.replace("\"", "\"\"") + "\"";
++        }
++        return s;
++    }
++
+     // REQ11: relatório nutricional agregado por instituição no mês
+     public Map<String, ResultadoNutricional> gerarRelatorioNutricionalPorInstituicao(
+             List<Distribuicao> historico, YearMonth mes) throws IOException, InterruptedException {
+diff --git a/src/com/alimentabem/service/ViaCepService.java b/src/com/alimentabem/service/ViaCepService.java
+index e4cc9e0..7ebf3a8 100644
+--- a/src/com/alimentabem/service/ViaCepService.java
++++ b/src/com/alimentabem/service/ViaCepService.java
+@@ -7,10 +7,13 @@ import java.net.URI;
+ import java.net.http.HttpClient;
+ import java.net.http.HttpRequest;
+ import java.net.http.HttpResponse;
++import java.time.Duration;
+ import java.util.regex.Matcher;
+ import java.util.regex.Pattern;
+ 
+ public class ViaCepService {
++    private static final HttpClient CLIENT = HttpClient.newBuilder()
++            .connectTimeout(Duration.ofSeconds(6)).build();
+ 
+     // REQ02: completa o endereço via BrasilAPI a partir do CEP
+     // REQ14: lança erro se o CEP for inválido ou não tiver retorno
+@@ -23,13 +26,13 @@ public class ViaCepService {
+ 
+         try {
+             String url = "https://brasilapi.com.br/api/cep/v1/" + cepNormalizado;
+-            HttpClient client = HttpClient.newHttpClient();
+             HttpRequest request = HttpRequest.newBuilder()
+                     .uri(URI.create(url))
++                    .timeout(Duration.ofSeconds(10)) // evita travar a tela indefinidamente
+                     .GET()
+                     .build();
+ 
+-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
++            HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+ 
+             if (response.statusCode() == 404) {
+                 throw new ValidacaoException("CEP " + cepNormalizado + " não encontrado na base de dados (REQ14).");
+diff --git a/src/com/alimentabem/ui/AlimentaBemApp.java b/src/com/alimentabem/ui/AlimentaBemApp.java
+index 5b4ddcc..72040bb 100644
+--- a/src/com/alimentabem/ui/AlimentaBemApp.java
++++ b/src/com/alimentabem/ui/AlimentaBemApp.java
+@@ -98,7 +98,9 @@ public class AlimentaBemApp extends JFrame {
+     private final Fachada fachada = new Fachada();
+ 
+     private static final Locale PT_BR = Locale.forLanguageTag("pt-BR");
+-    private static final DateTimeFormatter DF = DateTimeFormatter.ofPattern("dd/MM/yyyy");
++    // STRICT + 'uuuu': rejeita datas impossíveis como 31/02 (antes viravam 28/02 silenciosamente)
++    private static final DateTimeFormatter DF = DateTimeFormatter.ofPattern("dd/MM/uuuu")
++            .withResolverStyle(java.time.format.ResolverStyle.STRICT);
+     private static final HttpClient HTTP = HttpClient.newBuilder()
+             .connectTimeout(Duration.ofSeconds(6)).build();
+ 
+@@ -1462,8 +1464,13 @@ public class AlimentaBemApp extends JFrame {
+         grid.add(new MenuCard("doacao", "Doações", "Registrar e consultar doações recebidas", MenuCard.CLARO, this::abrirTelaDoacoes));
+         grid.add(new MenuCard("distribuicao", "Distribuições", "Saída de estoque para instituições, com sugestão FIFO", MenuCard.GRADIENTE, this::abrirTelaDistribuicoes));
+         grid.add(new MenuCard("relatorio", "Relatórios", "CSV, impacto nutricional e vencimentos", MenuCard.ESCURO, this::abrirTelaRelatorios));
+-        grid.add(new MenuCard("sair", "Sair", "Encerrar o sistema", MenuCard.PERIGO, () -> System.exit(0)));
++        grid.add(new MenuCard("sair", "Sair", "Encerrar o sistema", MenuCard.PERIGO, () -> {
++            if (confirmar(this, "Encerrar o AlimentaBem?\nOs dados ficam salvos para a próxima vez.")) System.exit(0);
++        }));
+         JLabel rodape = rotuloMuted("AlimentaBem  •  Projeto IP2  •  UFRPE  •  2026.2");
++        if (fachada.getArquivoDados() != null) {
++            rodape.setToolTipText("Dados salvos em " + fachada.getArquivoDados().toAbsolutePath());
++        }
+         rodape.setHorizontalAlignment(SwingConstants.CENTER);
+         corpo.add(rodape, BorderLayout.SOUTH);
+         corpo.add(grid, BorderLayout.CENTER);
+@@ -1607,7 +1614,7 @@ public class AlimentaBemApp extends JFrame {
+                 () -> new ArrayList<>(fachada.listarAlimentos()),
+                 a -> {
+                     ValorNutricional v = a.getValorNutricional();
+-                    return new Object[]{a.getNome(), rotulo(a.getCategoria()), rotulo(a.getUnidadeMedida()),
++                    return new Object[]{a.getNome(), rotulo(a.getCategoria()), unidadeComPeso(a),
+                             v != null ? nf(v.getCaloriasPor100g()) + " kcal" : "Não informado",
+                             v != null ? nf(v.getProteinasPor100gEmGramas()) + " g" : "—",
+                             v != null ? v.getFonte() : "—"};
+@@ -1639,25 +1646,41 @@ public class AlimentaBemApp extends JFrame {
+         JTextField nome = campo(existente != null ? existente.getNome() : "");
+         JComboBox<CategoriaAlimento> cat = combo(Arrays.asList(CategoriaAlimento.values()), AlimentaBemApp::rotulo);
+         JComboBox<UnidadeMedida> un = combo(Arrays.asList(UnidadeMedida.values()), AlimentaBemApp::rotulo);
++        // REQ06: peso médio de 1 unidade (g), usado no cálculo nutricional de alimentos contados em unidades
++        JTextField peso = campo(existente != null && existente.getPesoPorUnidadeGramas() != null
++                ? qf(existente.getPesoPorUnidadeGramas()) : "");
+         if (existente != null) {
+             cat.setSelectedItem(existente.getCategoria());
+             un.setSelectedItem(existente.getUnidadeMedida());
+         }
++        Runnable ajustarPeso = () -> habilitarCampo(peso, un.getSelectedItem() == UnidadeMedida.UNIDADE);
++        un.addActionListener(e -> ajustarPeso.run());
++        ajustarPeso.run();
+         Form f = new Form();
+         f.linha("Nome do alimento *", nome);
+         f.linha("Categoria *", cat);
+         f.linha("Unidade de medida *", un);
++        f.linha("Peso de 1 unidade (g) *", peso);
++        f.linha("", rotuloMuted("<html>Só para \"Unidade\" (ex.: 1 ovo ≈ 50 g). Usado no cálculo de calorias.</html>"));
+ 
+         String titulo = existente == null ? "Novo Alimento" : "Alterar Alimento";
+-        formDialog(titulo, "Defina nome, categoria e unidade de medida", 500, 360, f, "Salvar", d -> {
++        formDialog(titulo, "Defina nome, categoria e unidade de medida", 540, 480, f, "Salvar", d -> {
+             if (nome.getText().isBlank()) { aviso(d, "Informe o nome do alimento."); return false; }
+             CategoriaAlimento c = (CategoriaAlimento) cat.getSelectedItem();
+             UnidadeMedida u = (UnidadeMedida) un.getSelectedItem();
++            Double g = null;
++            if (u == UnidadeMedida.UNIDADE) {
++                g = parseNum(peso.getText());
++                if (g == null || g <= 0) {
++                    aviso(d, "Informe o peso médio de 1 unidade em gramas (número maior que zero).");
++                    return false;
++                }
++            }
+             if (existente == null) {
+-                fachada.cadastrarAlimento(nome.getText().trim(), c, u);
++                fachada.cadastrarAlimento(nome.getText().trim(), c, u, g);
+                 sucesso(d, "Alimento cadastrado!");
+             } else {
+-                fachada.atualizarAlimento(existente.getNome(), nome.getText().trim(), c, u);
++                fachada.atualizarAlimento(existente.getNome(), nome.getText().trim(), c, u, g);
+                 sucesso(d, "Alimento atualizado!");
+             }
+             return true;
+@@ -1720,7 +1743,7 @@ public class AlimentaBemApp extends JFrame {
+                     if (c == null || p == null || c < 0 || p < 0) {
+                         aviso(d, "Informe valores numéricos válidos (maiores ou iguais a zero)."); return false;
+                     }
+-                    alimento.setValorNutricional(new ValorNutricional(c, p, fonte.getText().trim()));
++                    fachada.definirValorNutricional(alimento, new ValorNutricional(c, p, fonte.getText().trim()));
+                     sucesso(d, "Valor nutricional registrado!");
+                     return true;
+                 });
+@@ -1901,14 +1924,14 @@ public class AlimentaBemApp extends JFrame {
+             double[] n = nutri(it.getAlimento(), it.getQuantidade());
+             kcal += n[0];
+             prot += n[1];
+-            if (it.getAlimento().getValorNutricional() == null) semNutri++;
++            if (semDadosNutricionais(it.getAlimento())) semNutri++;
+             linhas.add(new Object[]{it.getAlimento().getNome(), rotulo(it.getAlimento().getCategoria()),
+                     qf(it.getQuantidade()) + " " + unidadeCurta(it.getAlimento()),
+                     DF.format(it.getDataValidade()), nf(n[0]) + " kcal", nf(n[1]) + " g"});
+         }
+         String rodape = "Total da doação: " + nf(kcal) + " kcal  •  " + nf(prot) + " g de proteína"
+                 + (semNutri > 0 ? "<br><span style='color:#B45309'>" + semNutri
+-                + " item(ns) sem valor nutricional cadastrado não entraram no cálculo.</span>" : "");
++                + " item(ns) sem valor nutricional (ou sem peso por unidade) não entraram no cálculo.</span>" : "");
+         dialogoTabela("Detalhes da Doação",
+                 doacao.getDoador().getNome() + "  •  " + DF.format(doacao.getDataDoacao()),
+                 new String[]{"Alimento", "Categoria", "Quantidade", "Validade", "Calorias", "Proteínas"},
+@@ -2460,7 +2483,7 @@ public class AlimentaBemApp extends JFrame {
+     // REQ12: estoque a vencer em 7 dias
+     private void abrirTelaRelatorios() {
+         JDialog d = new JDialog(this, "Relatórios e Exportação", true);
+-        d.setSize(560, 520);
++        d.setSize(560, 600); // 520 cortava a 2ª linha do texto dos cartões
+         d.setLocationRelativeTo(this);
+         JPanel root = new JPanel(new BorderLayout());
+         root.setBackground(Theme.BG);
+@@ -2773,16 +2796,16 @@ public class AlimentaBemApp extends JFrame {
+     // =====================================================================
+     // NUTRIÇÃO
+     // =====================================================================
+-    /** Mesma convenção do RelatorioService do projeto: quantidade * 1000 g (kg, L ou unidade). */
+-    private static double gramas(Alimento a, double qtd) {
+-        return qtd * 1000.0;
++    /** Item sem dados para o cálculo: sem valor nutricional ou (unidade) sem peso por unidade. */
++    private static boolean semDadosNutricionais(Alimento a) {
++        return a.getValorNutricional() == null || a.gramasPara(1) == null;
+     }
+ 
+-    /** {calorias, proteínas(g)} da quantidade informada. */
++    /** {calorias, proteínas(g)} da quantidade informada (mesma conversão do RelatorioService: Alimento.gramasPara). */
+     private static double[] nutri(Alimento a, double qtd) {
+         ValorNutricional v = a.getValorNutricional();
+-        if (v == null) return new double[]{0, 0};
+-        double g = gramas(a, qtd);
++        Double g = a.gramasPara(qtd);
++        if (v == null || g == null) return new double[]{0, 0};
+         return new double[]{v.getCaloriasPor100g() * g / 100.0, v.getProteinasPor100gEmGramas() * g / 100.0};
+     }
+ 
+@@ -3021,6 +3044,13 @@ public class AlimentaBemApp extends JFrame {
+         }
+     }
+ 
++    /** "Unidade (50 g)" para alimentos contados em unidades; rótulo normal para kg/L. */
++    private static String unidadeComPeso(Alimento a) {
++        if (a.getUnidadeMedida() != UnidadeMedida.UNIDADE) return rotulo(a.getUnidadeMedida());
++        return a.getPesoPorUnidadeGramas() == null ? "Unidade (sem peso)"
++                : "Unidade (" + qf(a.getPesoPorUnidadeGramas()) + " g)";
++    }
++
+     private static String unidadeCurta(Alimento a) {
+         return a.getUnidadeMedida().getSigla();
+     }
+diff --git a/src/com/alimentabem/ui/MenuAlimentos.java b/src/com/alimentabem/ui/MenuAlimentos.java
+index acbc6e9..6d774af 100644
+--- a/src/com/alimentabem/ui/MenuAlimentos.java
++++ b/src/com/alimentabem/ui/MenuAlimentos.java
+@@ -53,13 +53,27 @@ public class MenuAlimentos {
+ 
+         System.out.println("Categoria (1-GRAOS, 2-LATICINIOS, 3-HORTIFRUTI, 4-ENLATADOS): ");
+         int catOp = Integer.parseInt(scanner.nextLine());
++        if (catOp < 1 || catOp > CategoriaAlimento.values().length) {
++            System.out.println("Categoria inválida. Escolha um número de 1 a " + CategoriaAlimento.values().length + ".");
++            return;
++        }
+         CategoriaAlimento cat = CategoriaAlimento.values()[catOp - 1];
+ 
+         System.out.println("Unidade de Medida (1-KG, 2-LITRO, 3-UNIDADE): ");
+         int umOp = Integer.parseInt(scanner.nextLine());
++        if (umOp < 1 || umOp > UnidadeMedida.values().length) {
++            System.out.println("Unidade inválida. Escolha um número de 1 a " + UnidadeMedida.values().length + ".");
++            return;
++        }
+         UnidadeMedida um = UnidadeMedida.values()[umOp - 1];
+ 
+-        fachada.cadastrarAlimento(nome, cat, um);
++        Double peso = null;
++        if (um == UnidadeMedida.UNIDADE) {
++            System.out.print("Peso médio de 1 unidade em gramas (ex.: 50 para um ovo): ");
++            peso = Double.parseDouble(scanner.nextLine().trim().replace(',', '.'));
++        }
++
++        fachada.cadastrarAlimento(nome, cat, um, peso);
+         System.out.println("Alimento '" + nome + "' cadastrado com sucesso!");
+     }
+ 
+diff --git a/src/com/alimentabem/ui/MenuInstituicoes.java b/src/com/alimentabem/ui/MenuInstituicoes.java
+index f98ece8..f9d1da1 100644
+--- a/src/com/alimentabem/ui/MenuInstituicoes.java
++++ b/src/com/alimentabem/ui/MenuInstituicoes.java
+@@ -80,7 +80,7 @@ public class MenuInstituicoes {
+             System.out.print("Quantidade desejada (" + alimento.getUnidadeMedida().getSigla() + "): ");
+             double qtd = Double.parseDouble(scanner.nextLine());
+ 
+-            itensPedidos.put(alimento, qtd);
++            itensPedidos.merge(alimento, qtd, Double::sum); // soma se o mesmo alimento for informado de novo
+ 
+             System.out.print("Deseja adicionar mais um alimento a esta distribuição? (S/N): ");
+             String resp = scanner.nextLine();

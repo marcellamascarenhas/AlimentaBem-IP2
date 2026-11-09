@@ -2,6 +2,8 @@ package com.alimentabem.model;
 
 // REQ01: doador Pessoa Física (identificado por CPF)
 public class PessoaFisica extends Doador {
+    private static final long serialVersionUID = 1L;
+
     private final String cpf;
     
     public PessoaFisica(String nome, String telefone, String email, String cpf) {

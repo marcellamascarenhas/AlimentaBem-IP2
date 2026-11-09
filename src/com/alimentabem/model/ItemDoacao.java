@@ -3,7 +3,9 @@ package com.alimentabem.model;
 import java.time.LocalDate;
 
 // REQ04: item de doação: alimento, quantidade e data de validade
-public class ItemDoacao {
+public class ItemDoacao implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
+
     private final Alimento alimento;
     private final double quantidade;
     private final LocalDate dataValidade;

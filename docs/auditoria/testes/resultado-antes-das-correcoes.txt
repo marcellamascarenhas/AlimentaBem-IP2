@@ -1,0 +1,37 @@
+PASS | F01 | Cadastrar PF e Empresa (REQ01)
+PASS | F02 | Documento duplicado e rejeitado
+PASS | F03 | Buscar doador por documento com mascara
+FAIL | F04 | [Console] CPF sem digitos ('abc') e rejeitado ou buscavel | AssertionError: dois doadores com CPF 'abc' foram aceitos (duplicidade nao detectada)
+PASS | F05 | Remover doador com doacao e bloqueado
+PASS | F06 | Atualizar doador (nome/email)
+PASS | F07 | Alimento duplicado (case-insensitive) rejeitado (REQ03)
+PASS | F08 | Remover alimento com lote e bloqueado
+FAIL | F09 | Editar unidade de alimento com estoque e bloqueado | AssertionError: unidade alterada de L para un com 2 L em estoque (estoque passa a significar 2 unidades)
+PASS | F10 | Doacao sem itens rejeitada (REQ15)
+PASS | F11 | Item vencido rejeitado (REQ19)
+PASS | F12 | Doacao de doador nao cadastrado rejeitada
+FAIL | F13 | Atomicidade: doacao rejeitada pelo estoque NAO deve ficar registrada | AssertionError: doacao ficou gravada sem lotes (1 doacao, 0 lotes) apos erro: ValidacaoException: Não é possível receber 'Arroz': a validade (2026-11-06) já está vencida.
+PASS | F14 | Mesmo alimento+validade agrupa no mesmo lote (REQ07)
+PASS | F15 | FIFO: lote mais proximo do vencimento sai primeiro (REQ09/18) e vencido e ignorado (REQ13)
+PASS | F16 | Excesso de estoque bloqueado (REQ16), mensagem cita lotes vencidos
+PASS | F17 | Atomicidade: 2 itens, 2o insuficiente -> estoque do 1o intacto
+PASS | F18 | Capacidade mensal (REQ17): 2 + 9 > 10 bloqueia
+PASS | F19 | Capacidade mensal: 2 + 8 = 10 permitido
+PASS | F20 | Retirada direta de lote vencido bloqueada (REQ13)
+PASS | F21 | Listar vencendo em 7 dias (REQ12) exclui vencidos e distantes
+FAIL | F22 | Data de distribuicao futura e rejeitada | AssertionError: aceitou data daqui a 5 anos
+FAIL | F23 | Precisao: retirar 0.1 + 0.2 de lote com 0.3 | ValidacaoException: Estoque insuficiente de 'Oleo'. Faltam 2.7755575615628914E-17 l.
+PASS | F24 | REQ20: remover instituicao com distribuicao bloqueado
+FAIL | F25 | Renomear instituicao para nome ja existente e rejeitado | AssertionError: duas instituicoes com o mesmo nome 'Inst A' agora existem
+PASS | F26 | REQ14: CEP com formato invalido rejeitado (sem rede)
+FAIL | F27 | REQ10: CSV com doador contendo ';' continua com 7 colunas | AssertionError: linha tem 8 colunas: 2026-11-08;Silva; Souza;Arroz;GRAOS;1.0;kg;2026-11-17
+FAIL | F28 | REQ06: 10 unidades de 'Ovo' (70 kcal/100g) nao devem virar 10 kg | AssertionError: 10 ovos = 14000.0 kcal (trata 1 un como 1000 g)
+FAIL | F29 | REQ11: relatorio nutricional agrega por instituicao no mes | IOException: Falha ao consultar a API USDA. Código HTTP: 429
+FAIL | F30 | Persistencia: dados sobrevivem a nova instancia da Fachada (reinicio) | AssertionError: repositorios apenas em memoria: dados perdidos ao reiniciar
+INFO | N01 | 248 ms; endereco=Praça da Sé, São Paulo/SP
+PASS | N01 | BrasilAPI: CEP publico 01001-000 (Praca da Se/SP) completa endereco (REQ02)
+INFO | N02 | ValidacaoException: CEP 00000000 não encontrado na base de dados (REQ14).
+PASS | N02 | BrasilAPI: CEP inexistente 00000-000 bloqueia cadastro (REQ14)
+FAIL | N03 | Atualizar CEP da instituicao atualiza o campo cep | AssertionError: cep=01001000 mas endereco=Rio de Janeiro
+FAIL | N04 | USDA (NutricaoService, DEMO_KEY): 'rice' retorna kcal plausivel (REQ05) | IOException: Falha ao consultar a API USDA. Código HTTP: 429
+TOTAL: 22 pass, 12 fail

@@ -53,13 +53,27 @@ public class MenuAlimentos {
 
         System.out.println("Categoria (1-GRAOS, 2-LATICINIOS, 3-HORTIFRUTI, 4-ENLATADOS): ");
         int catOp = Integer.parseInt(scanner.nextLine());
+        if (catOp < 1 || catOp > CategoriaAlimento.values().length) {
+            System.out.println("Categoria inválida. Escolha um número de 1 a " + CategoriaAlimento.values().length + ".");
+            return;
+        }
         CategoriaAlimento cat = CategoriaAlimento.values()[catOp - 1];
 
         System.out.println("Unidade de Medida (1-KG, 2-LITRO, 3-UNIDADE): ");
         int umOp = Integer.parseInt(scanner.nextLine());
+        if (umOp < 1 || umOp > UnidadeMedida.values().length) {
+            System.out.println("Unidade inválida. Escolha um número de 1 a " + UnidadeMedida.values().length + ".");
+            return;
+        }
         UnidadeMedida um = UnidadeMedida.values()[umOp - 1];
 
-        fachada.cadastrarAlimento(nome, cat, um);
+        Double peso = null;
+        if (um == UnidadeMedida.UNIDADE) {
+            System.out.print("Peso médio de 1 unidade em gramas (ex.: 50 para um ovo): ");
+            peso = Double.parseDouble(scanner.nextLine().trim().replace(',', '.'));
+        }
+
+        fachada.cadastrarAlimento(nome, cat, um, peso);
         System.out.println("Alimento '" + nome + "' cadastrado com sucesso!");
     }
 

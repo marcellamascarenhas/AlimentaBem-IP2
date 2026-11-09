@@ -4,7 +4,9 @@ import com.alimentabem.model.Doacao;
 import java.util.ArrayList;
 import java.util.List;
 
-public class RepositorioDoacaoMemoria implements IRepositorioDoacao {
+public class RepositorioDoacaoMemoria implements IRepositorioDoacao, java.io.Serializable {
+    private static final long serialVersionUID = 1L;
+
     private final List<Doacao> doacoes = new ArrayList<>();
 
     @Override

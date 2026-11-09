@@ -4,7 +4,9 @@ import com.alimentabem.model.InstituicaoBeneficiaria;
 import java.util.ArrayList;
 import java.util.List;
 
-public class RepositorioInstituicaoMemoria implements IRepositorioInstituicao {
+public class RepositorioInstituicaoMemoria implements IRepositorioInstituicao, java.io.Serializable {
+    private static final long serialVersionUID = 1L;
+
     private final List<InstituicaoBeneficiaria> instituicoes = new ArrayList<>();
 
     @Override

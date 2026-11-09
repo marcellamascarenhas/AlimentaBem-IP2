@@ -37,6 +37,9 @@ public class DistribuicaoServiceImpl implements DistribuicaoService {
         if (data == null) {
             throw new ValidacaoException("A data da distribuição é obrigatória.");
         }
+        if (data.isAfter(LocalDate.now())) {
+            throw new ValidacaoException("A data da distribuição não pode estar no futuro.");
+        }
         if (familiasAtendidas <= 0) {
             throw new ValidacaoException("O número de famílias atendidas deve ser maior que zero.");
         }
@@ -71,13 +74,13 @@ public class DistribuicaoServiceImpl implements DistribuicaoService {
                     quantidadeVencida += lote.getQuantidadeDisponivel();
                     continue;
                 }
-                if (restante <= 0) break;
+                if (restante <= LoteEstoque.TOLERANCIA) break;
                 double qtdDoLote = Math.min(lote.getQuantidadeDisponivel(), restante); // REQ18: FIFO
                 plano.add(new ItemDistribuicao(lote, qtdDoLote));
                 restante -= qtdDoLote;
             }
 
-            if (restante > 0) {                                  // REQ16: Validação de falta no estoque
+            if (restante > LoteEstoque.TOLERANCIA) {             // REQ16: Validação de falta no estoque
                 String sigla = alimento.getUnidadeMedida() != null ? alimento.getUnidadeMedida().getSigla() : "";
                 String aviso = quantidadeVencida > 0
                         ? " Existem " + quantidadeVencida + " " + sigla + " em lotes vencidos, que não podem ser distribuídos (REQ13)."

@@ -98,7 +98,9 @@ public class AlimentaBemApp extends JFrame {
     private final Fachada fachada = new Fachada();
 
     private static final Locale PT_BR = Locale.forLanguageTag("pt-BR");
-    private static final DateTimeFormatter DF = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    // STRICT + 'uuuu': rejeita datas impossíveis como 31/02 (antes viravam 28/02 silenciosamente)
+    private static final DateTimeFormatter DF = DateTimeFormatter.ofPattern("dd/MM/uuuu")
+            .withResolverStyle(java.time.format.ResolverStyle.STRICT);
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(6)).build();
 
@@ -1117,6 +1119,8 @@ public class AlimentaBemApp extends JFrame {
                 case "Endereço": peso = 250; break;
                 case "Atendidas no mês": peso = 200; break;
                 case "E-mail": case "Instituição": peso = 190; break;
+                case "Proteínas / 100g": peso = 135; break;
+                case "Unidade": peso = 150; break;   // "Unidade (50 g)" é mais longo que "Litro (L)"
                 case "CPF / CNPJ": peso = 190; break;
                 case "Tipo": peso = 130; break;
                 case "Fonte": peso = 190; break;
@@ -1462,8 +1466,13 @@ public class AlimentaBemApp extends JFrame {
         grid.add(new MenuCard("doacao", "Doações", "Registrar e consultar doações recebidas", MenuCard.CLARO, this::abrirTelaDoacoes));
         grid.add(new MenuCard("distribuicao", "Distribuições", "Saída de estoque para instituições, com sugestão FIFO", MenuCard.GRADIENTE, this::abrirTelaDistribuicoes));
         grid.add(new MenuCard("relatorio", "Relatórios", "CSV, impacto nutricional e vencimentos", MenuCard.ESCURO, this::abrirTelaRelatorios));
-        grid.add(new MenuCard("sair", "Sair", "Encerrar o sistema", MenuCard.PERIGO, () -> System.exit(0)));
+        grid.add(new MenuCard("sair", "Sair", "Encerrar o sistema", MenuCard.PERIGO, () -> {
+            if (confirmar(this, "Encerrar o AlimentaBem?\nOs dados ficam salvos para a próxima vez.")) System.exit(0);
+        }));
         JLabel rodape = rotuloMuted("AlimentaBem  •  Projeto IP2  •  UFRPE  •  2026.2");
+        if (fachada.getArquivoDados() != null) {
+            rodape.setToolTipText("Dados salvos em " + fachada.getArquivoDados().toAbsolutePath());
+        }
         rodape.setHorizontalAlignment(SwingConstants.CENTER);
         corpo.add(rodape, BorderLayout.SOUTH);
         corpo.add(grid, BorderLayout.CENTER);
@@ -1607,7 +1616,7 @@ public class AlimentaBemApp extends JFrame {
                 () -> new ArrayList<>(fachada.listarAlimentos()),
                 a -> {
                     ValorNutricional v = a.getValorNutricional();
-                    return new Object[]{a.getNome(), rotulo(a.getCategoria()), rotulo(a.getUnidadeMedida()),
+                    return new Object[]{a.getNome(), rotulo(a.getCategoria()), unidadeComPeso(a),
                             v != null ? nf(v.getCaloriasPor100g()) + " kcal" : "Não informado",
                             v != null ? nf(v.getProteinasPor100gEmGramas()) + " g" : "—",
                             v != null ? v.getFonte() : "—"};
@@ -1639,25 +1648,41 @@ public class AlimentaBemApp extends JFrame {
         JTextField nome = campo(existente != null ? existente.getNome() : "");
         JComboBox<CategoriaAlimento> cat = combo(Arrays.asList(CategoriaAlimento.values()), AlimentaBemApp::rotulo);
         JComboBox<UnidadeMedida> un = combo(Arrays.asList(UnidadeMedida.values()), AlimentaBemApp::rotulo);
+        // REQ06: peso médio de 1 unidade (g), usado no cálculo nutricional de alimentos contados em unidades
+        JTextField peso = campo(existente != null && existente.getPesoPorUnidadeGramas() != null
+                ? qf(existente.getPesoPorUnidadeGramas()) : "");
         if (existente != null) {
             cat.setSelectedItem(existente.getCategoria());
             un.setSelectedItem(existente.getUnidadeMedida());
         }
+        Runnable ajustarPeso = () -> habilitarCampo(peso, un.getSelectedItem() == UnidadeMedida.UNIDADE);
+        un.addActionListener(e -> ajustarPeso.run());
+        ajustarPeso.run();
         Form f = new Form();
         f.linha("Nome do alimento *", nome);
         f.linha("Categoria *", cat);
         f.linha("Unidade de medida *", un);
+        f.linha("Peso de 1 unidade (g) *", peso);
+        f.linha("", rotuloMuted("Só para \"Unidade\" (ex.: 1 ovo ≈ 50 g)."));
 
         String titulo = existente == null ? "Novo Alimento" : "Alterar Alimento";
-        formDialog(titulo, "Defina nome, categoria e unidade de medida", 500, 360, f, "Salvar", d -> {
+        formDialog(titulo, "Defina nome, categoria e unidade de medida", 540, 480, f, "Salvar", d -> {
             if (nome.getText().isBlank()) { aviso(d, "Informe o nome do alimento."); return false; }
             CategoriaAlimento c = (CategoriaAlimento) cat.getSelectedItem();
             UnidadeMedida u = (UnidadeMedida) un.getSelectedItem();
+            Double g = null;
+            if (u == UnidadeMedida.UNIDADE) {
+                g = parseNum(peso.getText());
+                if (g == null || g <= 0) {
+                    aviso(d, "Informe o peso médio de 1 unidade em gramas (número maior que zero).");
+                    return false;
+                }
+            }
             if (existente == null) {
-                fachada.cadastrarAlimento(nome.getText().trim(), c, u);
+                fachada.cadastrarAlimento(nome.getText().trim(), c, u, g);
                 sucesso(d, "Alimento cadastrado!");
             } else {
-                fachada.atualizarAlimento(existente.getNome(), nome.getText().trim(), c, u);
+                fachada.atualizarAlimento(existente.getNome(), nome.getText().trim(), c, u, g);
                 sucesso(d, "Alimento atualizado!");
             }
             return true;
@@ -1720,7 +1745,7 @@ public class AlimentaBemApp extends JFrame {
                     if (c == null || p == null || c < 0 || p < 0) {
                         aviso(d, "Informe valores numéricos válidos (maiores ou iguais a zero)."); return false;
                     }
-                    alimento.setValorNutricional(new ValorNutricional(c, p, fonte.getText().trim()));
+                    fachada.definirValorNutricional(alimento, new ValorNutricional(c, p, fonte.getText().trim()));
                     sucesso(d, "Valor nutricional registrado!");
                     return true;
                 });
@@ -1901,14 +1926,14 @@ public class AlimentaBemApp extends JFrame {
             double[] n = nutri(it.getAlimento(), it.getQuantidade());
             kcal += n[0];
             prot += n[1];
-            if (it.getAlimento().getValorNutricional() == null) semNutri++;
+            if (semDadosNutricionais(it.getAlimento())) semNutri++;
             linhas.add(new Object[]{it.getAlimento().getNome(), rotulo(it.getAlimento().getCategoria()),
                     qf(it.getQuantidade()) + " " + unidadeCurta(it.getAlimento()),
                     DF.format(it.getDataValidade()), nf(n[0]) + " kcal", nf(n[1]) + " g"});
         }
         String rodape = "Total da doação: " + nf(kcal) + " kcal  •  " + nf(prot) + " g de proteína"
                 + (semNutri > 0 ? "<br><span style='color:#B45309'>" + semNutri
-                + " item(ns) sem valor nutricional cadastrado não entraram no cálculo.</span>" : "");
+                + " item(ns) sem valor nutricional (ou sem peso por unidade) não entraram no cálculo.</span>" : "");
         dialogoTabela("Detalhes da Doação",
                 doacao.getDoador().getNome() + "  •  " + DF.format(doacao.getDataDoacao()),
                 new String[]{"Alimento", "Categoria", "Quantidade", "Validade", "Calorias", "Proteínas"},
@@ -2460,7 +2485,7 @@ public class AlimentaBemApp extends JFrame {
     // REQ12: estoque a vencer em 7 dias
     private void abrirTelaRelatorios() {
         JDialog d = new JDialog(this, "Relatórios e Exportação", true);
-        d.setSize(560, 520);
+        d.setSize(560, 600); // 520 cortava a 2ª linha do texto dos cartões
         d.setLocationRelativeTo(this);
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(Theme.BG);
@@ -2773,16 +2798,16 @@ public class AlimentaBemApp extends JFrame {
     // =====================================================================
     // NUTRIÇÃO
     // =====================================================================
-    /** Mesma convenção do RelatorioService do projeto: quantidade * 1000 g (kg, L ou unidade). */
-    private static double gramas(Alimento a, double qtd) {
-        return qtd * 1000.0;
+    /** Item sem dados para o cálculo: sem valor nutricional ou (unidade) sem peso por unidade. */
+    private static boolean semDadosNutricionais(Alimento a) {
+        return a.getValorNutricional() == null || a.gramasPara(1) == null;
     }
 
-    /** {calorias, proteínas(g)} da quantidade informada. */
+    /** {calorias, proteínas(g)} da quantidade informada (mesma conversão do RelatorioService: Alimento.gramasPara). */
     private static double[] nutri(Alimento a, double qtd) {
         ValorNutricional v = a.getValorNutricional();
-        if (v == null) return new double[]{0, 0};
-        double g = gramas(a, qtd);
+        Double g = a.gramasPara(qtd);
+        if (v == null || g == null) return new double[]{0, 0};
         return new double[]{v.getCaloriasPor100g() * g / 100.0, v.getProteinasPor100gEmGramas() * g / 100.0};
     }
 
@@ -3019,6 +3044,13 @@ public class AlimentaBemApp extends JFrame {
             case "UNIDADE": return "Unidade";
             default: return n.isEmpty() ? n : n.charAt(0) + n.substring(1).toLowerCase();
         }
+    }
+
+    /** "Unidade (50 g)" para alimentos contados em unidades; rótulo normal para kg/L. */
+    private static String unidadeComPeso(Alimento a) {
+        if (a.getUnidadeMedida() != UnidadeMedida.UNIDADE) return rotulo(a.getUnidadeMedida());
+        return a.getPesoPorUnidadeGramas() == null ? "Unidade (sem peso)"
+                : "Unidade (" + qf(a.getPesoPorUnidadeGramas()) + " g)";
     }
 
     private static String unidadeCurta(Alimento a) {

@@ -6,7 +6,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class RepositorioAlimentoMemoria implements IRepositorioAlimento {
+public class RepositorioAlimentoMemoria implements IRepositorioAlimento, java.io.Serializable {
+    private static final long serialVersionUID = 1L;
+
     private final List<Alimento> alimentos = new ArrayList<>();
 
     @Override

@@ -2,6 +2,8 @@ package com.alimentabem.model;
 
 // REQ01: doador Empresa (possui CNPJ e razão social)
 public class Empresa extends Doador {
+    private static final long serialVersionUID = 1L;
+
     private final String cnpj;
     private String razaoSocial;
 

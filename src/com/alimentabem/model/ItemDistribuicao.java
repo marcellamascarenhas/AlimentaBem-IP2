@@ -1,7 +1,9 @@
 package com.alimentabem.model;
 
 // REQ08: item retirado do estoque: lote de origem + quantidade
-public class ItemDistribuicao {
+public class ItemDistribuicao implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
+
     private final LoteEstoque lote;
     private final double quantidadeRetirada;
 
