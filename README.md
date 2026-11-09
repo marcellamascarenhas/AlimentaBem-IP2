@@ -90,10 +90,6 @@ Cada implementação tem um comentário `// REQxx` logo acima. Para localizar, p
 | REQ20 | `InstituicaoServiceImpl.remover` | `abrirTelaInstituicoes` |
 | Bônus | — | `gerarRelatorioHtml` |
 
-## Documentação
-
-Veja também [`docs/AUDITORIA.md`](docs/AUDITORIA.md) (pontos de melhoria encontrados no código).
-
 ### Diagrama de classes
 
 ![Diagrama de classes](docs/diagrama-classes.jpeg)
