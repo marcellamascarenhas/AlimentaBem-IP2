@@ -132,13 +132,13 @@ public class EstoqueService {
         candidatos.sort(Comparator.comparing(LoteEstoque::getDataValidade)); // REQ18: ordenação FIFO por vencimento
 
         for (LoteEstoque lote : candidatos) {
-            if (restante <= 0) break;
+            if (restante <= LoteEstoque.TOLERANCIA) break;
             double retirarDesteLote = Math.min(restante, lote.getQuantidadeDisponivel());
             sugestoes.add(new SugestaoRetirada(lote, retirarDesteLote));
             restante -= retirarDesteLote;
         }
 
-        if (restante > 0) {
+        if (restante > LoteEstoque.TOLERANCIA) {
             String sigla = alimento.getUnidadeMedida() != null ? alimento.getUnidadeMedida().getSigla() : "";
             String aviso = quantidadeVencida > 0
                     ? " Existem " + quantidadeVencida + " " + sigla + " em lotes vencidos, que não podem ser distribuídos (REQ13)."

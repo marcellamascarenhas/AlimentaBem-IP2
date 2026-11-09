@@ -58,15 +58,26 @@ public class InstituicaoServiceImpl implements InstituicaoService {
     public void atualizar(String nome, String novoNome, String novoCep, int novaCapacidade) {
         InstituicaoBeneficiaria existente = buscarPorNome(nome);
 
-        if (novoNome != null && !novoNome.isBlank()) {
-            existente.setNome(novoNome);
+        boolean renomeando = novoNome != null && !novoNome.isBlank();
+        if (renomeando && !novoNome.trim().equalsIgnoreCase(existente.getNome())
+                && repoInstituicao.buscarPorNome(novoNome.trim()) != null) {
+            throw new ElementoJaCadastradoException("Já existe uma instituição cadastrada com o nome: " + novoNome.trim());
         }
 
-        // REQ14: Se o CEP for alterado, revalida na API de CEP antes de atualizar
+        // REQ14: Se o CEP for alterado, revalida na API de CEP antes de alterar qualquer campo
+        Endereco novoEndereco = null;
+        String cepLimpo = null;
         if (novoCep != null && !novoCep.isBlank()) {
-            String cepLimpo = novoCep.replaceAll("\\D", "");
-            Endereco end = viaCepService.buscarEnderecoPorCep(cepLimpo);
-            existente.setEndereco(end);
+            cepLimpo = novoCep.replaceAll("\\D", "");
+            novoEndereco = viaCepService.buscarEnderecoPorCep(cepLimpo);
+        }
+
+        if (renomeando) {
+            existente.setNome(novoNome);
+        }
+        if (novoEndereco != null) {
+            existente.setCep(cepLimpo);          // antes só o endereço era trocado e o CEP ficava o antigo
+            existente.setEndereco(novoEndereco);
         }
 
         if (novaCapacidade > 0) {

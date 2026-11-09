@@ -1,7 +1,9 @@
 package com.alimentabem.model;
 
 // REQ01: base da herança de doadores (Pessoa Física e Empresa)
-public abstract class Doador {
+public abstract class Doador implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
+
     private String nome;
     private String telefone;
     private String email;

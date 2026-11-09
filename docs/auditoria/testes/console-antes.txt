@@ -1,0 +1,31 @@
+Escolha uma opção: 
+Opção: Nome: Telefone: Email: CPF: Pessoa Física cadastrada com sucesso!
+Escolha uma opção: 
+Escolha uma opção: Nome do Alimento: Categoria (1-GRAOS, 2-LATICINIOS, 3-HORTIFRUTI, 4-ENLATADOS): 
+Erro: Index 8 out of bounds for length 4
+Escolha uma opção: Nome do Alimento: Categoria (1-GRAOS, 2-LATICINIOS, 3-HORTIFRUTI, 4-ENLATADOS): 
+Unidade de Medida (1-KG, 2-LITRO, 3-UNIDADE): 
+Alimento 'Arroz' cadastrado com sucesso!
+Escolha uma opção: Retornando ao Menu Principal...
+Escolha uma opção: 
+--- REGISTRAR DOAÇÃO (ENTRADA) ---
+Documento do Doador (CPF/CNPJ): Nome do Alimento: Quantidade doada (kg): Data de Validade (AAAA-MM-DD): Deseja adicionar mais um alimento a esta doação? (S/N): Nome do Alimento: Quantidade doada (kg): Data de Validade (AAAA-MM-DD): Erro de Validação: Não é possível cadastrar o item 'Arroz' : a validade (2020-01-01) já está vencida na data da doação (2026-11-08).
+Escolha uma opção: 
+--- REGISTRAR DOAÇÃO (ENTRADA) ---
+Documento do Doador (CPF/CNPJ): Nome do Alimento: Quantidade doada (kg): Erro: Por favor, digite um número válido.
+Escolha uma opção: 
+--- REGISTRAR DOAÇÃO (ENTRADA) ---
+Documento do Doador (CPF/CNPJ): Nome do Alimento: Quantidade doada (kg): Data de Validade (AAAA-MM-DD): Deseja adicionar mais um alimento a esta doação? (S/N): Doação registrada e estoque atualizado com sucesso!
+Escolha uma opção: 
+Opção: Nome da Instituição: CEP (8 dígitos): Capacidade Mensal (famílias): Instituição cadastrada com sucesso: [c5efdfa4] Inst Console (Capacidade: 5 famílias/mês) - CEP: 01001000 - São Paulo/SP
+Escolha uma opção: 
+--- REGISTRAR DISTRIBUIÇÃO (SAÍDA FIFO) ---
+Nome da Instituição Beneficiária: Quantidade de Famílias Atendidas nesta distribuição: Nome do Alimento a distribuir: Quantidade desejada (kg): Deseja adicionar mais um alimento a esta distribuição? (S/N): Nome do Alimento a distribuir: Quantidade desejada (kg): Deseja adicionar mais um alimento a esta distribuição? (S/N): Distribuição realizada com sucesso!
+[215b1107] Distribuição para Inst Console em 2026-11-08 (2 famílias, 1 itens)
+Escolha uma opção: 
+Escolha uma opção: 
+--- Saldo em Estoque por Lote ---
+Lote[cc50fdab] 6,00 kg de Arroz (validade 2026-12-08)
+Escolha uma opção: Retornando ao Menu Principal...
+Escolha uma opção: Erro: Por favor, digite um número válido.
+Escolha uma opção: Saindo do Sistema AlimentaBem. Até logo!

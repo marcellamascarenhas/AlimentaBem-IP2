@@ -7,10 +7,13 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class ViaCepService {
+    private static final HttpClient CLIENT = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(6)).build();
 
     // REQ02: completa o endereço via BrasilAPI a partir do CEP
     // REQ14: lança erro se o CEP for inválido ou não tiver retorno
@@ -23,13 +26,13 @@ public class ViaCepService {
 
         try {
             String url = "https://brasilapi.com.br/api/cep/v1/" + cepNormalizado;
-            HttpClient client = HttpClient.newHttpClient();
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
+                    .timeout(Duration.ofSeconds(10)) // evita travar a tela indefinidamente
                     .GET()
                     .build();
 
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() == 404) {
                 throw new ValidacaoException("CEP " + cepNormalizado + " não encontrado na base de dados (REQ14).");

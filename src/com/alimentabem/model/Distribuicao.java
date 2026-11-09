@@ -8,7 +8,9 @@ import java.util.List;
 import java.util.UUID;
 
 // REQ08: distribuição para uma instituição beneficiária com os itens retirados do estoque
-public class Distribuicao {
+public class Distribuicao implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
+
     private String id;
     private final InstituicaoBeneficiaria instituicao;
     private final LocalDate dataDistribuicao;

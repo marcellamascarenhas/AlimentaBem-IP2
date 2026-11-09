@@ -80,7 +80,7 @@ public class MenuInstituicoes {
             System.out.print("Quantidade desejada (" + alimento.getUnidadeMedida().getSigla() + "): ");
             double qtd = Double.parseDouble(scanner.nextLine());
 
-            itensPedidos.put(alimento, qtd);
+            itensPedidos.merge(alimento, qtd, Double::sum); // soma se o mesmo alimento for informado de novo
 
             System.out.print("Deseja adicionar mais um alimento a esta distribuição? (S/N): ");
             String resp = scanner.nextLine();

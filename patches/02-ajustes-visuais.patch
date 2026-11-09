@@ -1,0 +1,22 @@
+diff --git a/src/com/alimentabem/ui/AlimentaBemApp.java b/src/com/alimentabem/ui/AlimentaBemApp.java
+index 72040bb..289128e 100644
+--- a/src/com/alimentabem/ui/AlimentaBemApp.java
++++ b/src/com/alimentabem/ui/AlimentaBemApp.java
+@@ -1119,6 +1119,8 @@ public class AlimentaBemApp extends JFrame {
+                 case "Endereço": peso = 250; break;
+                 case "Atendidas no mês": peso = 200; break;
+                 case "E-mail": case "Instituição": peso = 190; break;
++                case "Proteínas / 100g": peso = 135; break;
++                case "Unidade": peso = 150; break;   // "Unidade (50 g)" é mais longo que "Litro (L)"
+                 case "CPF / CNPJ": peso = 190; break;
+                 case "Tipo": peso = 130; break;
+                 case "Fonte": peso = 190; break;
+@@ -1661,7 +1663,7 @@ public class AlimentaBemApp extends JFrame {
+         f.linha("Categoria *", cat);
+         f.linha("Unidade de medida *", un);
+         f.linha("Peso de 1 unidade (g) *", peso);
+-        f.linha("", rotuloMuted("<html>Só para \"Unidade\" (ex.: 1 ovo ≈ 50 g). Usado no cálculo de calorias.</html>"));
++        f.linha("", rotuloMuted("Só para \"Unidade\" (ex.: 1 ovo ≈ 50 g)."));
+ 
+         String titulo = existente == null ? "Novo Alimento" : "Alterar Alimento";
+         formDialog(titulo, "Defina nome, categoria e unidade de medida", 540, 480, f, "Salvar", d -> {

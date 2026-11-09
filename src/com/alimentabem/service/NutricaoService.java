@@ -17,7 +17,8 @@ public class NutricaoService {
     private static final String API_KEY = "DEMO_KEY";
     private static final String BASE_URL = "https://api.nal.usda.gov/fdc/v1/foods/search";
     
-    private final HttpClient httpClient = HttpClient.newHttpClient();
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(java.time.Duration.ofSeconds(6)).build();
     
     // cache para não repetir consultas
     private final Map<String, ValorNutricional> cache = new HashMap<>();
@@ -34,7 +35,8 @@ public class NutricaoService {
         String query = URLEncoder.encode(nomeAlimento, StandardCharsets.UTF_8);
         String url = BASE_URL + "?api_key=" + API_KEY + "&query=" + query + "&pageSize=1";
         
-        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url)).GET().build();
+        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url))
+                .timeout(java.time.Duration.ofSeconds(12)).GET().build();
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         
         if (response.statusCode() != 200) {

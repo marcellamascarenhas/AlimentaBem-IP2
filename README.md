@@ -60,7 +60,10 @@ JavaFX, USDA FoodData Central (https://fdc.nal.usda.gov/api-key-signup — chave
    * `com.alimentabem.ui.Main` — interface de console.
 4. *(Opcional)* Para consultar a USDA com chave própria, defina a variável de ambiente `USDA_API_KEY` (sem ela, a tela usa `DEMO_KEY`, que tem limite baixo).
 
-> Os dados ficam em memória: ao fechar o programa eles são perdidos.
+> **Dados salvos automaticamente** após cada cadastro, doação, distribuição ou alteração, no arquivo
+> `.alimentabem/dados.dat` dentro da pasta do usuário (ex.: `C:\Users\<você>\.alimentabem\dados.dat`).
+> Para usar outro arquivo: `java -Dalimentabem.dados=caminho/arquivo.dat ...`. Para recomeçar do zero, apague esse arquivo.
+> A GUI e o console usam o mesmo arquivo — não os abra ao mesmo tempo (o último a salvar sobrescreve o outro).
 
 ## Onde está cada requisito
 

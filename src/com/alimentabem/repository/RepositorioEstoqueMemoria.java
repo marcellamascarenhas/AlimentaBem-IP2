@@ -8,7 +8,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class RepositorioEstoqueMemoria implements IRepositorioEstoque {
+public class RepositorioEstoqueMemoria implements IRepositorioEstoque, java.io.Serializable {
+    private static final long serialVersionUID = 1L;
+
     private final List<LoteEstoque> lotes = new ArrayList<>();
 
     @Override

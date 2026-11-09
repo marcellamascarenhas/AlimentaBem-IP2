@@ -5,7 +5,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class RepositorioDistribuicaoMemoria implements IRepositorioDistribuicao {
+public class RepositorioDistribuicaoMemoria implements IRepositorioDistribuicao, java.io.Serializable {
+    private static final long serialVersionUID = 1L;
+
     private final List<Distribuicao> distribuicoes = new ArrayList<>();
 
     @Override

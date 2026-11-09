@@ -3,7 +3,9 @@ package com.alimentabem.model;
 import java.util.UUID;
 
 // REQ02: instituição beneficiária: nome, CEP, endereço e capacidade mensal de famílias
-public class InstituicaoBeneficiaria {
+public class InstituicaoBeneficiaria implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
+
     private String id;
     private String nome;
     private String cep;
