@@ -106,3 +106,15 @@ Cada implementação tem um comentário `// REQxx` logo acima. Para localizar, p
 * Julia Maria da Rocha Barbosa Pappen - julia.pappen@ufrpe.br
 * Lucas José Amaral da Silva - lucas.joseamaral@ufrpe.br
 * Marcella Barbosa Mascarenhas - marcella.mascarenhas@ufrpe.br
+
+
+## Testes (JUnit 5)
+
+Os testes ficam na pasta `test/` (espelhando os pacotes de `src/`):
+
+* `service/AlimentoServiceImplTest` — cadastro, busca, alteração e exclusão de alimentos;
+* `service/DistribuicaoServiceImplTest` — baixa por validade (FIFO), bloqueio de lotes vencidos, quantidades inválidas, capacidade mensal;
+* `service/EstoqueServiceTest` — entrada e saída de estoque;
+* `repository/PersistenciaArquivoTest` — grava no arquivo `.dat`, "reabre" o sistema e confere se tudo voltou igual.
+
+**No IntelliJ:** clique com o botão direito em `test` → *Mark Directory as* → *Test Sources Root*. Ao abrir um teste, use *Alt+Enter* em `@Test` → *Add 'JUnit5.x' to classpath* (ou *File → Project Structure → Libraries → + → From Maven → `org.junit.jupiter:junit-jupiter:5.10.1`*). Depois, botão direito em `test` → *Run 'All Tests'*.

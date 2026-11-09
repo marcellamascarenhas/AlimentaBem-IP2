@@ -11,6 +11,9 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.plaf.FontUIResource;
 import javax.swing.plaf.basic.BasicComboBoxUI;
+import javax.swing.text.AbstractDocument;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.DocumentFilter;
 import javax.swing.table.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
@@ -1042,6 +1045,41 @@ public class AlimentaBemApp extends JFrame {
         return f;
     }
 
+    /** Campo que só aceita número decimal positivo (dígitos e um único "." ou ","). Letras são ignoradas ao digitar/colar. */
+    private static JTextField campoDecimal(String texto) {
+        JTextField f = campo(texto);
+        restringirEntrada(f, "\\d*([.,]\\d*)?");
+        return f;
+    }
+
+    /** Campo que só aceita número inteiro não negativo (somente dígitos). */
+    private static JTextField campoInteiro() {
+        JTextField f = campo();
+        restringirEntrada(f, "\\d*");
+        return f;
+    }
+
+    /** Barra qualquer edição cujo texto final não case com o padrão (e limita o tamanho a 12 caracteres). */
+    private static void restringirEntrada(JTextField f, String regex) {
+        ((AbstractDocument) f.getDocument()).setDocumentFilter(new DocumentFilter() {
+            private boolean valido(FilterBypass fb, int offset, int length, String novo) throws BadLocationException {
+                String atual = fb.getDocument().getText(0, fb.getDocument().getLength());
+                String depois = atual.substring(0, offset) + (novo == null ? "" : novo) + atual.substring(offset + length);
+                return depois.length() <= 12 && depois.matches(regex);
+            }
+            @Override public void insertString(FilterBypass fb, int offset, String str, javax.swing.text.AttributeSet a)
+                    throws BadLocationException {
+                if (valido(fb, offset, 0, str)) super.insertString(fb, offset, str, a);
+                else Toolkit.getDefaultToolkit().beep();
+            }
+            @Override public void replace(FilterBypass fb, int offset, int length, String str, javax.swing.text.AttributeSet a)
+                    throws BadLocationException {
+                if (valido(fb, offset, length, str)) super.replace(fb, offset, length, str, a);
+                else Toolkit.getDefaultToolkit().beep();
+            }
+        });
+    }
+
     @SuppressWarnings("unchecked")
     private static <T> JComboBox<T> combo(List<T> itens, Function<T, String> rotulo) {
         JComboBox<T> cb = new JComboBox<>(new Vector<>(itens));
@@ -1649,7 +1687,7 @@ public class AlimentaBemApp extends JFrame {
         JComboBox<CategoriaAlimento> cat = combo(Arrays.asList(CategoriaAlimento.values()), AlimentaBemApp::rotulo);
         JComboBox<UnidadeMedida> un = combo(Arrays.asList(UnidadeMedida.values()), AlimentaBemApp::rotulo);
         // REQ06: peso médio de 1 unidade (g), usado no cálculo nutricional de alimentos contados em unidades
-        JTextField peso = campo(existente != null && existente.getPesoPorUnidadeGramas() != null
+        JTextField peso = campoDecimal(existente != null && existente.getPesoPorUnidadeGramas() != null
                 ? qf(existente.getPesoPorUnidadeGramas()) : "");
         if (existente != null) {
             cat.setSelectedItem(existente.getCategoria());
@@ -1695,8 +1733,8 @@ public class AlimentaBemApp extends JFrame {
         String chaveEnv = System.getenv("USDA_API_KEY");
         JTextField termo = campo(alimento.getNome());
         JTextField chave = campo(chaveEnv != null && !chaveEnv.isBlank() ? chaveEnv : "DEMO_KEY");
-        JTextField cal = campo(atual != null ? String.format(Locale.US, "%.1f", atual.getCaloriasPor100g()) : "");
-        JTextField prot = campo(atual != null ? String.format(Locale.US, "%.1f", atual.getProteinasPor100gEmGramas()) : "");
+        JTextField cal = campoDecimal(atual != null ? String.format(Locale.US, "%.1f", atual.getCaloriasPor100g()) : "");
+        JTextField prot = campoDecimal(atual != null ? String.format(Locale.US, "%.1f", atual.getProteinasPor100gEmGramas()) : "");
         JTextField fonte = campo(atual != null ? atual.getFonte() : "USDA FoodData Central");
         JLabel status = rotuloMuted("Digite o nome em inglês (ex.: rice, milk, apple) e clique em Buscar.");
 
@@ -1781,7 +1819,7 @@ public class AlimentaBemApp extends JFrame {
     // REQ02: cadastro de instituição: nome, CEP (endereço automático via BrasilAPI) e capacidade mensal
     // REQ14: CEP inválido ou sem retorno da API bloqueia o cadastro
     private void abrirCadastroInstituicao() {
-        JTextField nome = campo(), cep = campo(), cap = campo();
+        JTextField nome = campo(), cep = campo(), cap = campoInteiro();
         JTextField rua = campoSomenteLeitura(), bairro = campoSomenteLeitura(),
                 cidade = campoSomenteLeitura(), uf = campoSomenteLeitura();
         JLabel status = rotuloMuted("Informe o CEP e clique em Buscar para completar o endereço.");
@@ -2047,7 +2085,7 @@ public class AlimentaBemApp extends JFrame {
     // REQ19: bloqueia item com validade já vencida
     private void abrirAdicionarItemDoacao(List<ItemDoacao> itens, Runnable aposAdicionar) {
         JComboBox<Alimento> cb = combo(fachada.listarAlimentos(), a -> a.getNome() + "  (" + rotulo(a.getCategoria()) + ")");
-        JTextField qtd = campo();
+        JTextField qtd = campoDecimal("");
         JTextField validade = campo(LocalDate.now().plusMonths(3).format(DF));
         Form f = new Form();
         f.linha("Alimento *", cb);
@@ -2159,7 +2197,7 @@ public class AlimentaBemApp extends JFrame {
             return celula;
         });
 
-        JTextField familias = campo();
+        JTextField familias = campoInteiro();
 
         // --- itens
         List<Object[]> itens = new ArrayList<>(); // {Alimento, Double qtdPorInstituicao}
@@ -2265,7 +2303,7 @@ public class AlimentaBemApp extends JFrame {
         List<Alimento> disponiveis = alimentosComEstoqueValido();
         JComboBox<Alimento> cb = combo(disponiveis,
                 a -> a.getNome() + "  (disp.: " + qf(disponivelValido(a)) + " " + unidadeCurta(a) + ")");
-        JTextField qtd = campo();
+        JTextField qtd = campoDecimal("");
         Form f = new Form();
         f.linha("Alimento *", cb);
         f.linha("Quantidade por instituição *", qtd);
@@ -2982,18 +3020,23 @@ public class AlimentaBemApp extends JFrame {
         return sb.length() == 0 ? "—" : sb.toString();
     }
 
+    /** Converte "12", "12,5" ou "12.5" em número; devolve null para qualquer outra coisa (letras, "NaN", "1e5", "5d"...). */
     private static Double parseNum(String s) {
+        if (s == null || !s.trim().matches("\\d+([.,]\\d+)?")) return null;
         try {
-            return Double.parseDouble(s.trim().replace(',', '.'));
-        } catch (Exception e) {
+            double v = Double.parseDouble(s.trim().replace(',', '.'));
+            return Double.isNaN(v) || Double.isInfinite(v) ? null : v;
+        } catch (NumberFormatException e) {
             return null;
         }
     }
 
+    /** Converte número inteiro; devolve null se houver letras, sinais, decimais ou se estourar o limite do int. */
     private static Integer parseInt(String s) {
+        if (s == null || !s.trim().matches("\\d+")) return null;
         try {
             return Integer.parseInt(s.trim());
-        } catch (Exception e) {
+        } catch (NumberFormatException e) {
             return null;
         }
     }

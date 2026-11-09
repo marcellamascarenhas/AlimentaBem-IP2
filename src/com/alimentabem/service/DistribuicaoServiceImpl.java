@@ -62,13 +62,14 @@ public class DistribuicaoServiceImpl implements DistribuicaoService {
         for (Map.Entry<Alimento, Double> entry : itensSolicitados.entrySet()) {
             Alimento alimento = entry.getKey();
             Double quantidade = entry.getValue();
-            if (alimento == null || quantidade == null || quantidade <= 0) {
+            if (alimento == null || quantidade == null || !(quantidade > 0) || Double.isInfinite(quantidade)) {
                 throw new ValidacaoException("Informe um alimento e uma quantidade maior que zero.");
             }
 
             double restante = quantidade;
             double quantidadeVencida = 0;
-            for (LoteEstoque lote : estoqueService.listarLotesDisponiveisFIFO(alimento)) {
+            // Percorre TODOS os lotes do alimento (já ordenados por validade) para poder avisar quanto está vencido
+            for (LoteEstoque lote : estoqueService.listarLotesPorAlimento(alimento)) {
                 if (lote.getQuantidadeDisponivel() <= 0) continue;
                 if (lote.estaVencido()) {                       // REQ13: lote vencido nunca é utilizado
                     quantidadeVencida += lote.getQuantidadeDisponivel();

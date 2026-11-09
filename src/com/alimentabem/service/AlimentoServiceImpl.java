@@ -99,7 +99,7 @@ public class AlimentoServiceImpl implements AlimentoService {
     /** Peso obrigatório e positivo para UNIDADE; para kg/L não se aplica (fica null). */
     private static Double validarPeso(UnidadeMedida unidade, Double peso) {
         if (unidade != UnidadeMedida.UNIDADE) return null;
-        if (peso == null || peso.isNaN() || peso <= 0) {
+        if (peso == null || peso.isNaN() || peso.isInfinite() || peso <= 0) {
             throw new ValidacaoException("Informe o peso médio de 1 unidade em gramas (maior que zero). "
                     + "Ele é usado para calcular calorias e proteínas.");
         }

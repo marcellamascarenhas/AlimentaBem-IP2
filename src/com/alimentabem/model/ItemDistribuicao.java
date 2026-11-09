@@ -11,7 +11,7 @@ public class ItemDistribuicao implements java.io.Serializable {
         if (lote == null) {
             throw new IllegalArgumentException("O item de distribuição precisa estar vinculado a um lote.");
         }
-        if (quantidadeRetirada <= 0) {
+        if (!(quantidadeRetirada > 0) || Double.isInfinite(quantidadeRetirada)) {
             throw new IllegalArgumentException("A quantidade retirada deve ser maior que zero.");
         }
         this.lote = lote;

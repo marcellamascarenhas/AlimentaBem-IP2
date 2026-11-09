@@ -20,7 +20,7 @@ public class LoteEstoque implements java.io.Serializable {
         if (alimento == null) {
             throw new IllegalArgumentException("O lote precisa de um alimento.");
         }
-        if (quantidadeInicial <= 0) {
+        if (!(quantidadeInicial > 0) || Double.isInfinite(quantidadeInicial)) {
             throw new IllegalArgumentException("A quantidade inicial do lote deve ser maior que zero.");
         }
         if (dataValidade == null) {
@@ -43,7 +43,7 @@ public class LoteEstoque implements java.io.Serializable {
     }
 
     public void adicionar(double quantidade) {
-        if (quantidade <= 0) {
+        if (!(quantidade > 0) || Double.isInfinite(quantidade)) {
             throw new IllegalArgumentException("A quantidade a adicionar deve ser maior que zero.");
         }
         this.quantidadeDisponivel += quantidade;
@@ -52,7 +52,7 @@ public class LoteEstoque implements java.io.Serializable {
     // REQ13: bloqueia a retirada de lote vencido
     // REQ16: a quantidade retirada não pode exceder a disponível no lote
     public void retirar(double quantidade) {
-        if (quantidade <= 0) {
+        if (!(quantidade > 0) || Double.isInfinite(quantidade)) {
             throw new IllegalArgumentException("A quantidade a retirar deve ser maior que zero.");
         }
 

@@ -65,7 +65,7 @@ public class EstoqueService {
         if (alimento == null) {
             throw new IllegalArgumentException("O alimento não pode ser nulo.");
         }
-        if (quantidade <= 0) {
+        if (!(quantidade > 0) || Double.isInfinite(quantidade)) {
             throw new IllegalArgumentException("A quantidade deve ser maior que zero.");
         }
         validarValidade(alimento, dataValidade);
@@ -109,7 +109,7 @@ public class EstoqueService {
         if (alimento == null) {
             throw new IllegalArgumentException("O alimento não pode ser nulo.");
         }
-        if (quantidadeNecessaria <= 0) {
+        if (!(quantidadeNecessaria > 0) || Double.isInfinite(quantidadeNecessaria)) {
             throw new IllegalArgumentException("A quantidade necessária deve ser maior que zero.");
         }
 

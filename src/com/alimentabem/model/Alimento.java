@@ -33,7 +33,7 @@ public class Alimento implements java.io.Serializable {
     public Double getPesoPorUnidadeGramas() { return pesoPorUnidadeGramas; }
 
     public void setPesoPorUnidadeGramas(Double gramas) {
-        if (gramas != null && (gramas.isNaN() || gramas <= 0)) {
+        if (gramas != null && (gramas.isNaN() || gramas.isInfinite() || gramas <= 0)) {
             throw new IllegalArgumentException("O peso por unidade deve ser maior que zero.");
         }
         this.pesoPorUnidadeGramas = gramas;

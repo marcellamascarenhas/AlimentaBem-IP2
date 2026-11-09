@@ -14,7 +14,7 @@ public class ItemDoacao implements java.io.Serializable {
         if (alimento == null) {
             throw new IllegalArgumentException("O item de doação precisa de um alimento.");
         }
-        if (quantidade <= 0) {
+        if (!(quantidade > 0) || Double.isInfinite(quantidade)) {
             throw new IllegalArgumentException("A quantidade doada deve ser maior que zero.");
         }
         if (dataValidade == null) {
