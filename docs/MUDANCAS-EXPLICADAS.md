@@ -1,4 +1,4 @@
-# O que mudou no AlimentaBem (explicado para quem está começando em Java)
+# O que mudou no AlimentaBem 
 
 Este documento explica **cada mudança feita no código**, por que ela foi necessária e qual conceito de Java está por trás. A ideia é que você consiga ler o código novo e entender o motivo de cada linha.
 
