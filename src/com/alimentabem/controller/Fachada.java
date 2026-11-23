@@ -11,8 +11,8 @@ import java.util.Map;
 
 public class Fachada {
 
-    private final ControladorDoador controladorDoador;
-    private final ControladorDoacao controladorDoacao;
+    private final DoadorService doadorService;
+    private final DoacaoService doacaoService;
 
     private final AlimentoService alimentoService;
     private final EstoqueService estoqueService;
@@ -38,10 +38,10 @@ public class Fachada {
         IRepositorioInstituicao repoInstituicao = armazenamento.instituicoes();
         IRepositorioDistribuicao repoDistribuicao = armazenamento.distribuicoes();
 
-        this.controladorDoador = new ControladorDoador(repoDoador);
-        this.controladorDoacao = new ControladorDoacao(repoDoacao, repoDoador);
+        this.doadorService = new DoadorServiceImpl(repoDoador, repoDoacao);
 
         this.estoqueService = new EstoqueService(repoEstoque);
+        this.doacaoService = new DoacaoServiceImpl(repoDoacao, repoDoador, this.estoqueService);
         this.alimentoService = new AlimentoServiceImpl(repoAlimento, repoEstoque);
 
         ViaCepService viaCepService = new ViaCepService();
@@ -51,23 +51,17 @@ public class Fachada {
 
     // --- DOADORES ---
     // REQ01: cadastrar doadores (Pessoa Física / Empresa)
-    public void cadastrarDoador(Doador doador) { controladorDoador.cadastrarDoador(doador); salvar(); }
-    public Doador buscarDoadorPorDocumento(String doc) { return controladorDoador.buscarPorDocumento(doc); }
-    public List<Doador> listarDoadores() { return controladorDoador.listarDoadores(); }
+    public void cadastrarDoador(Doador doador) { doadorService.cadastrar(doador); salvar(); }
+    public Doador buscarDoadorPorDocumento(String doc) { return doadorService.buscarPorDocumento(doc); }
+    public List<Doador> listarDoadores() { return doadorService.listarTodos(); }
 
     public void atualizarDoador(String documento, String nome, String telefone, String email, String razaoSocial) {
-        controladorDoador.atualizarDoador(documento, nome, telefone, email, razaoSocial);
+        doadorService.atualizar(documento, nome, telefone, email, razaoSocial);
         salvar();
     }
 
     public void removerDoador(String documento) {
-        Doador doador = controladorDoador.buscarPorDocumento(documento);
-        for (Doacao doacao : controladorDoacao.listarDoacoes()) {
-            if (doacao.getDoador().getDocumento().equals(doador.getDocumento())) {
-                throw new ValidacaoException("Não é possível remover '" + doador.getNome() + "': ele já possui doações registradas.");
-            }
-        }
-        controladorDoador.removerDoador(documento);
+        doadorService.remover(documento);   // a regra "doador com doações não pode ser excluído" fica no serviço
         salvar();
     }
 
@@ -76,13 +70,11 @@ public class Fachada {
     // REQ15: doação sem itens é rejeitada
     // REQ19: itens vencidos são rejeitados
     public void registrarDoacao(Doacao doacao) {
-        // Valida tudo antes de gravar: a doação só é registrada se o estoque aceitar todos os itens.
-        controladorDoacao.validarDoacao(doacao);
-        estoqueService.registrarDoacao(doacao);   // valida as validades (REQ19) e dá entrada nos lotes
-        controladorDoacao.registrarDoacao(doacao);
+        // O serviço valida tudo antes de gravar: a doação só é registrada se o estoque aceitar todos os itens.
+        doacaoService.registrar(doacao);
         salvar();
     }
-    public List<Doacao> listarDoacoes() { return controladorDoacao.listarDoacoes(); }
+    public List<Doacao> listarDoacoes() { return doacaoService.listarTodas(); }
 
     // --- ALIMENTOS E ESTOQUE ---
     // REQ03: cadastrar alimentos (nome, categoria, unidade)
