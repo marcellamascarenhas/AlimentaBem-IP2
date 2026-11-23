@@ -2,6 +2,7 @@ package com.alimentabem.ui;
 
 import com.alimentabem.controller.Fachada;
 import com.alimentabem.model.*;
+import com.alimentabem.service.CatalogoAlimentos;
 import com.alimentabem.service.NutricaoService;
 import com.alimentabem.service.RelatorioService;
 
@@ -16,12 +17,15 @@ import javax.swing.text.BadLocationException;
 import javax.swing.text.DocumentFilter;
 import javax.swing.table.*;
 import java.awt.*;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.geom.Arc2D;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.event.MouseEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import javax.imageio.ImageIO;
@@ -75,7 +79,7 @@ import java.util.stream.Collectors;
  *   REQ02  instituições + CEP ...... abrirCadastroInstituicao / consultarCep
  *   REQ03  alimentos ............... abrirTelaAlimentos / abrirFormAlimento
  *   REQ04  doação + itens .......... abrirCadastroDoacao / abrirAdicionarItemDoacao
- *   REQ05  valor nutricional (USDA)  abrirValorNutricional / consultarUsda
+ *   REQ05  valor nutricional (USDA)  abrirValorNutricional / NutricaoService
  *   REQ06  calorias/proteínas ...... nutriDoacao (total ao vivo em Nova Doação)
  *   REQ07  estoque por lote ........ abrirTelaEstoque
  *   REQ08  distribuição ............ abrirCadastroDistribuicao / validarERegistrarDistribuicao
@@ -1161,7 +1165,8 @@ public class AlimentaBemApp extends JFrame {
                 case "Unidade": peso = 150; break;   // "Unidade (50 g)" é mais longo que "Litro (L)"
                 case "CPF / CNPJ": peso = 190; break;
                 case "Tipo": peso = 130; break;
-                case "Fonte": peso = 190; break;
+                case "Fonte": peso = 250; break;
+                case "Calorias / 100g": peso = 150; break;
                 case "Telefone": peso = 130; break;
                 case "Nome": case "Doador": case "Alimento": peso = 160; break;
                 case "Quantidade por instituição": peso = 210; break;
@@ -1228,20 +1233,147 @@ public class AlimentaBemApp extends JFrame {
 
     // ---------- mensagens ----------
     private static void aviso(Component pai, String msg) {
-        JOptionPane.showMessageDialog(pai, msg, "Atenção", JOptionPane.WARNING_MESSAGE);
+        Mensagem.mostrar(pai, Mensagem.Tipo.AVISO, "Atenção", msg, false);
     }
 
     private static void erro(Component pai, String msg) {
-        JOptionPane.showMessageDialog(pai, msg, "Não foi possível concluir", JOptionPane.ERROR_MESSAGE);
+        Mensagem.mostrar(pai, Mensagem.Tipo.ERRO, "Não foi possível concluir", msg, false);
     }
 
     private static void sucesso(Component pai, String msg) {
-        JOptionPane.showMessageDialog(pai, msg, "Tudo certo", JOptionPane.INFORMATION_MESSAGE);
+        Mensagem.mostrar(pai, Mensagem.Tipo.SUCESSO, "Tudo certo", msg, false);
     }
 
     private static boolean confirmar(Component pai, String msg) {
-        return JOptionPane.showConfirmDialog(pai, msg, "Confirmar", JOptionPane.YES_NO_OPTION,
-                JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_OPTION;
+        return Mensagem.mostrar(pai, Mensagem.Tipo.PERGUNTA, "Confirmar", msg, true);
+    }
+
+    /** Fecha a janela ao apertar Esc. */
+    private static void fecharComEsc(JDialog d) {
+        d.getRootPane().registerKeyboardAction(e -> d.dispose(),
+                KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), JComponent.WHEN_IN_FOCUSED_WINDOW);
+    }
+
+    /** Define o texto de um rótulo de status (quebra linha automaticamente). */
+    private static void definirStatus(JLabel l, Color cor, String texto) {
+        l.setForeground(cor);
+        l.setText("<html><body style='width:400px'>" + esc(texto).replace("\n", "<br>") + "</body></html>");
+    }
+
+    /** Caixa de mensagem no estilo do app (substitui o JOptionPane padrão). */
+    private static final class Mensagem {
+        enum Tipo { SUCESSO, AVISO, ERRO, PERGUNTA }
+
+        private static final class Icone extends JComponent {
+            private final Tipo tipo;
+            private final Color cor;
+
+            Icone(Tipo tipo, Color cor) {
+                this.tipo = tipo;
+                this.cor = cor;
+                setPreferredSize(new Dimension(56, 56));
+            }
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                g2.setColor(new Color(cor.getRed(), cor.getGreen(), cor.getBlue(), 34));
+                g2.fillOval(0, 0, 52, 52);
+                g2.setColor(cor);
+                g2.setStroke(new BasicStroke(3.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                switch (tipo) {
+                    case SUCESSO:
+                        g2.drawLine(15, 27, 23, 35);
+                        g2.drawLine(23, 35, 38, 18);
+                        break;
+                    case ERRO:
+                        g2.drawLine(18, 18, 34, 34);
+                        g2.drawLine(34, 18, 18, 34);
+                        break;
+                    default:
+                        g2.setFont(Theme.title(30));
+                        String c = tipo == Tipo.AVISO ? "!" : "?";
+                        FontMetrics fm = g2.getFontMetrics();
+                        g2.drawString(c, (52 - fm.stringWidth(c)) / 2, (52 - fm.getHeight()) / 2 + fm.getAscent());
+                }
+                g2.dispose();
+            }
+        }
+
+        /** @return true se o usuário confirmou (sempre true nas mensagens simples). */
+        static boolean mostrar(Component pai, Tipo tipo, String titulo, String texto, boolean perguntar) {
+            Window dono = pai instanceof Window ? (Window) pai : SwingUtilities.getWindowAncestor(pai);
+            JDialog d = new JDialog(dono, titulo, Dialog.ModalityType.APPLICATION_MODAL);
+            boolean[] ok = {false};
+            Color cor;
+            switch (tipo) {
+                case SUCESSO: cor = Theme.OK; break;
+                case ERRO: cor = Theme.DANGER; break;
+                case AVISO: cor = new Color(0xD97706); break;
+                default: cor = Theme.PRIMARY;
+            }
+            final Color corFinal = cor;
+
+            JPanel faixa = new JPanel() {
+                @Override protected void paintComponent(Graphics g) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setPaint(new GradientPaint(0, 0, corFinal, getWidth(), 0, Theme.ACCENT));
+                    g2.fillRect(0, 0, getWidth(), getHeight());
+                    g2.dispose();
+                }
+            };
+            faixa.setPreferredSize(new Dimension(10, 5));
+
+            JLabel t = new JLabel(titulo);
+            t.setFont(Theme.title(16));
+            t.setForeground(Theme.TEXT);
+            JLabel corpo = new JLabel("<html><body style='width:300px'>"
+                    + esc(texto).replace("\n", "<br>") + "</body></html>");
+            corpo.setFont(Theme.body(13));
+            corpo.setForeground(new Color(0x475569));
+            JPanel textos = new JPanel(new BorderLayout(0, 6));
+            textos.setOpaque(false);
+            textos.add(t, BorderLayout.NORTH);
+            textos.add(corpo, BorderLayout.CENTER);
+
+            JPanel conteudo = new JPanel(new BorderLayout(16, 0));
+            conteudo.setOpaque(false);
+            conteudo.setBorder(new EmptyBorder(22, 24, 12, 26));
+            JPanel iconeWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+            iconeWrap.setOpaque(false);
+            iconeWrap.add(new Icone(tipo, cor));
+            conteudo.add(iconeWrap, BorderLayout.WEST);
+            conteudo.add(textos, BorderLayout.CENTER);
+
+            JPanel botoes = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 8));
+            botoes.setOpaque(false);
+            botoes.setBorder(new EmptyBorder(0, 10, 8, 14));
+            ModernButton principal = new ModernButton(perguntar ? "Confirmar" : "OK",
+                    tipo == Tipo.ERRO ? ModernButton.Kind.DANGER : ModernButton.Kind.PRIMARY);
+            principal.addActionListener(e -> { ok[0] = true; d.dispose(); });
+            if (perguntar) {
+                ModernButton cancelar = new ModernButton("Cancelar", ModernButton.Kind.SECONDARY);
+                cancelar.addActionListener(e -> d.dispose());
+                botoes.add(cancelar);
+            }
+            botoes.add(principal);
+
+            JPanel root = new JPanel(new BorderLayout());
+            root.setBackground(Color.WHITE);
+            root.add(faixa, BorderLayout.NORTH);
+            root.add(conteudo, BorderLayout.CENTER);
+            root.add(botoes, BorderLayout.SOUTH);
+            d.setContentPane(root);
+            d.getRootPane().setDefaultButton(principal);
+            fecharComEsc(d);
+            d.setResizable(false);
+            d.pack();
+            d.setLocationRelativeTo(pai);
+            d.setVisible(true);
+            return ok[0] || (!perguntar);
+        }
     }
 
     // =====================================================================
@@ -1257,12 +1389,14 @@ public class AlimentaBemApp extends JFrame {
         private List<T> entities = new ArrayList<>();
         private final JPanel extra = new JPanel(new BorderLayout());
         private Runnable aposReload;
+        private final JLabel contagem = new JLabel(" ");
 
         ListScreen(String titulo, String subtitulo, String[] colunas,
                    Supplier<List<T>> source, Function<T, Object[]> mapper, int w, int h) {
             this.source = source;
             this.mapper = mapper;
             dialog = new JDialog(AlimentaBemApp.this, titulo, true);
+            fecharComEsc(dialog);
             dialog.setSize(w, h);
             dialog.setLocationRelativeTo(AlimentaBemApp.this);
 
@@ -1298,7 +1432,15 @@ public class AlimentaBemApp extends JFrame {
 
             root.add(corpo, BorderLayout.CENTER);
             footer.setBorder(new EmptyBorder(0, 12, 0, 12));
-            root.add(footer, BorderLayout.SOUTH);
+            contagem.setFont(Theme.body(12));
+            contagem.setForeground(Theme.MUTED);
+            contagem.setBorder(new EmptyBorder(0, 22, 0, 0));
+            JPanel rodape = new JPanel(new BorderLayout());
+            rodape.setOpaque(false);
+            rodape.add(contagem, BorderLayout.WEST);
+            rodape.add(footer, BorderLayout.EAST);
+            root.add(rodape, BorderLayout.SOUTH);
+            table.getRowSorter().addRowSorterListener(ev -> atualizarContagem());
             dialog.setContentPane(root);
 
             ModernButton fechar = new ModernButton("Fechar", ModernButton.Kind.SECONDARY);
@@ -1340,7 +1482,15 @@ public class AlimentaBemApp extends JFrame {
             entities = new ArrayList<>(source.get());
             model.setRowCount(0);
             for (T t : entities) model.addRow(mapper.apply(t));
+            atualizarContagem();
             if (aposReload != null) aposReload.run();
+        }
+
+        void atualizarContagem() {
+            int total = entities.size();
+            int visiveis = table.getRowCount();
+            String unidade = total == 1 ? " registro" : " registros";
+            contagem.setText(visiveis == total ? total + unidade : visiveis + " de " + total + " registros");
         }
 
         void aoRecarregar(Runnable r) { this.aposReload = r; }
@@ -1363,6 +1513,7 @@ public class AlimentaBemApp extends JFrame {
     private void dialogoTabela(String titulo, String subtitulo, String[] colunas, List<Object[]> linhas,
                                String rodapeHtml, int w, int h) {
         JDialog d = new JDialog(this, titulo, true);
+        fecharComEsc(d);
         d.setSize(w, h);
         d.setLocationRelativeTo(this);
         DefaultTableModel m = modeloTabela(colunas);
@@ -1396,6 +1547,7 @@ public class AlimentaBemApp extends JFrame {
     private void formDialog(String titulo, String subtitulo, int w, int h, JComponent form,
                             String textoSalvar, Predicate<JDialog> onSave) {
         JDialog d = new JDialog(this, titulo, true);
+        fecharComEsc(d);
         d.setSize(w, h);
         d.setLocationRelativeTo(this);
         JPanel root = new JPanel(new BorderLayout());
@@ -1437,7 +1589,12 @@ public class AlimentaBemApp extends JFrame {
         setTitle("AlimentaBem — Sistema de Doação de Alimentos");
         setSize(1120, 740);
         setMinimumSize(new Dimension(1000, 700));
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        addWindowListener(new WindowAdapter() {
+            @Override public void windowClosing(WindowEvent e) {
+                if (confirmar(AlimentaBemApp.this, "Encerrar o AlimentaBem?\nOs dados ficam salvos para a próxima vez.")) System.exit(0);
+            }
+        });
         setLocationRelativeTo(null);
 
         Image icone = Marca.escalada(64);
@@ -1507,7 +1664,7 @@ public class AlimentaBemApp extends JFrame {
         grid.add(new MenuCard("sair", "Sair", "Encerrar o sistema", MenuCard.PERIGO, () -> {
             if (confirmar(this, "Encerrar o AlimentaBem?\nOs dados ficam salvos para a próxima vez.")) System.exit(0);
         }));
-        JLabel rodape = rotuloMuted("AlimentaBem  •  Projeto IP2  •  UFRPE  •  2026.2");
+        JLabel rodape = rotuloMuted("AlimentaBem  •  Projeto IP2  •  UFRPE  •  2026.2  •  dados salvos automaticamente");
         if (fachada.getArquivoDados() != null) {
             rodape.setToolTipText("Dados salvos em " + fachada.getArquivoDados().toAbsolutePath());
         }
@@ -1656,9 +1813,9 @@ public class AlimentaBemApp extends JFrame {
                     ValorNutricional v = a.getValorNutricional();
                     return new Object[]{a.getNome(), rotulo(a.getCategoria()), unidadeComPeso(a),
                             v != null ? nf(v.getCaloriasPor100g()) + " kcal" : "Não informado",
-                            v != null ? nf(v.getProteinasPor100gEmGramas()) + " g" : "—",
+                            v != null ? nf2(v.getProteinasPor100gEmGramas()) + " g" : "—",
                             v != null ? v.getFonte() : "—"};
-                }, 900, 540);
+                }, 1000, 540);
         tela.addAction("Novo Alimento", ModernButton.Kind.PRIMARY, () -> abrirFormAlimento(null));
         tela.addAction("Excluir", ModernButton.Kind.DANGER, () -> {
             Alimento sel = tela.selecionado();
@@ -1730,36 +1887,45 @@ public class AlimentaBemApp extends JFrame {
     // REQ05: busca calorias/proteínas na API USDA FoodData Central (ou preenchimento manual)
     private void abrirValorNutricional(Alimento alimento) {
         ValorNutricional atual = alimento.getValorNutricional();
-        String chaveEnv = System.getenv("USDA_API_KEY");
         JTextField termo = campo(alimento.getNome());
-        JTextField chave = campo(chaveEnv != null && !chaveEnv.isBlank() ? chaveEnv : "DEMO_KEY");
-        JTextField cal = campoDecimal(atual != null ? String.format(Locale.US, "%.1f", atual.getCaloriasPor100g()) : "");
-        JTextField prot = campoDecimal(atual != null ? String.format(Locale.US, "%.1f", atual.getProteinasPor100gEmGramas()) : "");
-        JTextField fonte = campo(atual != null ? atual.getFonte() : "USDA FoodData Central");
-        JLabel status = rotuloMuted("Digite o nome em inglês (ex.: rice, milk, apple) e clique em Buscar.");
+        JTextField chave = campo(NutricaoService.chaveDoAmbiente());
+        JTextField cal = campoDecimal(atual != null ? String.format(Locale.US, "%.2f", atual.getCaloriasPor100g()) : "");
+        JTextField prot = campoDecimal(atual != null ? String.format(Locale.US, "%.2f", atual.getProteinasPor100gEmGramas()) : "");
+        JTextField fonte = campo(atual != null ? atual.getFonte() : NutricaoService.FONTE_API);
+        JLabel status = rotuloMuted(" ");
+        definirStatus(status, Theme.MUTED, "Pode digitar em português ou inglês (ex.: arroz, milk). O sistema traduz o nome para a busca na USDA.");
+        JLabel dicaChave = rotuloMuted(" ");
+        if (new NutricaoService(chave.getText()).usandoChaveDemo()) {
+            definirStatus(dicaChave, Theme.MUTED, "Chave DEMO_KEY: limite de 30 consultas por hora. Chave grátis em fdc.nal.usda.gov/api-key-signup "
+                    + "(defina a variável de ambiente " + NutricaoService.VARIAVEL_CHAVE + ").");
+        }
 
         ModernButton buscar = new ModernButton("Buscar na USDA", ModernButton.Kind.PRIMARY);
         buscar.addActionListener(e -> {
+            String digitado = termo.getText().trim();
+            if (digitado.isEmpty()) { aviso(buscar, "Digite o nome do alimento para buscar."); return; }
             buscar.setEnabled(false);
-            status.setForeground(Theme.MUTED);
-            status.setText("Consultando USDA FoodData Central...");
-            async(() -> consultarUsda(termo.getText().trim(), chave.getText().trim()),
+            definirStatus(status, Theme.MUTED, "Consultando a USDA com o termo \"" + CatalogoAlimentos.traduzir(digitado) + "\"...");
+            async(() -> new NutricaoService(chave.getText()).buscar(digitado),
                     r -> {
                         buscar.setEnabled(true);
                         if (r == null) {
-                            status.setForeground(Theme.DANGER);
-                            status.setText("Nenhum resultado encontrado para esse termo.");
+                            definirStatus(status, Theme.DANGER, "Nenhum resultado para \"" + digitado + "\". Tente o nome em inglês (ex.: rice, milk, apple).");
                             return;
                         }
-                        if (r.kcal != null) cal.setText(String.format(Locale.US, "%.1f", r.kcal));
-                        if (r.proteina != null) prot.setText(String.format(Locale.US, "%.1f", r.proteina));
-                        status.setForeground(Theme.OK);
-                        status.setText("Encontrado: " + r.descricao);
+                        cal.setText(String.format(Locale.US, "%.2f", r.getValor().getCaloriasPor100g()));
+                        prot.setText(String.format(Locale.US, "%.2f", r.getValor().getProteinasPor100gEmGramas()));
+                        fonte.setText(r.getValor().getFonte());
+                        if (r.getOrigem() == NutricaoService.Origem.TABELA_LOCAL) {
+                            definirStatus(status, Theme.WARN, r.getAviso() + "\nValores de referência de \"" + r.getDescricao() + "\" (por 100 g).");
+                        } else {
+                            definirStatus(status, Theme.OK, "Encontrado na USDA: " + r.getDescricao() + "\nTermo enviado: \"" + r.getTermoUsado() + "\" (valores por 100 g).");
+                        }
                     },
                     ex -> {
                         buscar.setEnabled(true);
-                        status.setForeground(Theme.DANGER);
-                        status.setText(ex.getMessage());
+                        definirStatus(status, Theme.DANGER, "Não foi possível consultar: " + ex.getMessage()
+                                + "\nVocê pode digitar os valores manualmente abaixo.");
                     });
         });
 
@@ -1769,15 +1935,16 @@ public class AlimentaBemApp extends JFrame {
         linhaBusca.add(buscar, BorderLayout.EAST);
 
         Form f = new Form();
-        f.linha("Termo (inglês)", linhaBusca);
+        f.linha("Alimento (PT ou EN)", linhaBusca);
+        f.linha("", status);
         f.linha("Chave da API", chave);
+        f.linha("", dicaChave);
         f.linha("Calorias / 100g *", cal);
         f.linha("Proteínas / 100g (g) *", prot);
         f.linha("Fonte dos dados", fonte);
-        f.linha("", status);
 
         formDialog("Valor Nutricional — " + alimento.getNome(), "Consulta à USDA FoodData Central ou preenchimento manual",
-                640, 520, f, "Salvar", d -> {
+                700, 640, f, "Salvar", d -> {
                     Double c = parseNum(cal.getText());
                     Double p = parseNum(prot.getText());
                     if (c == null || p == null || c < 0 || p < 0) {
@@ -1986,6 +2153,7 @@ public class AlimentaBemApp extends JFrame {
             return;
         }
         JDialog d = new JDialog(this, "Nova Doação", true);
+        fecharComEsc(d);
         d.setSize(820, 620);
         d.setLocationRelativeTo(this);
 
@@ -2175,6 +2343,7 @@ public class AlimentaBemApp extends JFrame {
         }
         YearMonth mes = YearMonth.now();
         JDialog d = new JDialog(this, "Nova Distribuição", true);
+        fecharComEsc(d);
         d.setSize(980, 660);
         d.setLocationRelativeTo(this);
 
@@ -2523,6 +2692,7 @@ public class AlimentaBemApp extends JFrame {
     // REQ12: estoque a vencer em 7 dias
     private void abrirTelaRelatorios() {
         JDialog d = new JDialog(this, "Relatórios e Exportação", true);
+        fecharComEsc(d);
         d.setSize(560, 600); // 520 cortava a 2ª linha do texto dos cartões
         d.setLocationRelativeTo(this);
         JPanel root = new JPanel(new BorderLayout());
@@ -2549,6 +2719,7 @@ public class AlimentaBemApp extends JFrame {
     // ---- REQ10: doações por período e categoria, CSV ----
     private void abrirRelatorioDoacoes() {
         JDialog d = new JDialog(this, "Relatório de Doações", true);
+        fecharComEsc(d);
         d.setSize(980, 620);
         d.setLocationRelativeTo(this);
 
@@ -2661,6 +2832,7 @@ public class AlimentaBemApp extends JFrame {
     // BÔNUS: botão que gera o relatório HTML e abre no navegador
     private void abrirRelatorioNutricional() {
         JDialog d = new JDialog(this, "Relatório Nutricional", true);
+        fecharComEsc(d);
         d.setSize(980, 720);
         d.setLocationRelativeTo(this);
 
@@ -2687,6 +2859,17 @@ public class AlimentaBemApp extends JFrame {
                 m.addRow(new Object[]{e.getKey().getNome(), (int) v[0], (int) v[1], nf(v[2]) + " kcal", nf(v[3]) + " g"});
             }
             resumo.setText("Total no mês: " + nf(k) + " kcal  •  " + nf(p) + " g de proteína");
+            java.util.Set<String> semValor = new java.util.TreeSet<>();   // alimentos que não entraram na conta
+            for (Distribuicao dist : fachada.listarTodasDistribuicoes()) {
+                if (!YearMonth.from(dist.getDataDistribuicao()).equals(ym)) continue;
+                for (ItemDistribuicao it : dist.getItens()) {
+                    Alimento al = it.getLote().getAlimento();
+                    if (al.getValorNutricional() == null) semValor.add(al.getNome());
+                }
+            }
+            if (!semValor.isEmpty()) {
+                resumo.setText(resumo.getText() + "   |   Sem valor nutricional (fora do cálculo): " + String.join(", ", semValor));
+            }
             List<Map.Entry<InstituicaoBeneficiaria, double[]>> ordenado = new ArrayList<>(agg.entrySet());
             ordenado.removeIf(en -> en.getValue()[2] <= 0);
             ordenado.sort((x, y) -> Double.compare(y.getValue()[2], x.getValue()[2]));
@@ -2872,7 +3055,7 @@ public class AlimentaBemApp extends JFrame {
     }
 
     // =====================================================================
-    // INTEGRAÇÕES HTTP (BrasilAPI e USDA) — REQ02, REQ05, REQ14
+    // INTEGRAÇÃO HTTP (BrasilAPI) — REQ02, REQ14  |  a USDA fica em NutricaoService (REQ05)
     // =====================================================================
     private <T> void async(Callable<T> tarefa, Consumer<T> ok, Consumer<Exception> falha) {
         new SwingWorker<T, Void>() {
@@ -2913,58 +3096,6 @@ public class AlimentaBemApp extends JFrame {
         return new String[]{jsonStr(b, "street"), jsonStr(b, "neighborhood"), jsonStr(b, "city"), jsonStr(b, "state")};
     }
 
-    private static final class UsdaResultado {
-        Double kcal;
-        Double proteina;
-        String descricao = "";
-    }
-
-    // REQ05: chamada à API USDA FoodData Central (foods/search)
-    private static UsdaResultado consultarUsda(String termo, String chave) throws Exception {
-        if (termo.isBlank()) throw new Exception("Informe o nome do alimento (em inglês) para buscar.");
-        if (chave.isBlank()) throw new Exception("Informe a chave da API (use DEMO_KEY para testes).");
-        String url = "https://api.nal.usda.gov/fdc/v1/foods/search?query="
-                + URLEncoder.encode(termo, StandardCharsets.UTF_8)
-                + "&pageSize=1&dataType=Foundation,SR%20Legacy&api_key="
-                + URLEncoder.encode(chave, StandardCharsets.UTF_8);
-        HttpRequest rq = HttpRequest.newBuilder(URI.create(url))
-                .timeout(Duration.ofSeconds(12)).header("Accept", "application/json").GET().build();
-        HttpResponse<String> rs;
-        try {
-            rs = HTTP.send(rq, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-        } catch (IOException ex) {
-            throw new Exception("Não foi possível consultar a USDA. Verifique sua conexão com a internet.");
-        }
-        int s = rs.statusCode();
-        if (s == 401 || s == 403) throw new Exception("Chave de API da USDA inválida.");
-        if (s == 429) throw new Exception("Limite de requisições da USDA atingido. Tente novamente mais tarde.");
-        if (s != 200) throw new Exception("A USDA retornou erro HTTP " + s + ".");
-        String body = rs.body();
-        UsdaResultado r = new UsdaResultado();
-        r.kcal = nutriente(body, "Energy[^\"]*", true);
-        r.proteina = nutriente(body, "Protein", false);
-        if (r.kcal == null && r.proteina == null) return null;
-        r.descricao = jsonStr(body, "description");
-        return r;
-    }
-
-    private static final Pattern VALOR = Pattern.compile("\"value\"\\s*:\\s*(-?[0-9]+(?:\\.[0-9]+)?)");
-    private static final Pattern UNIDADE_KCAL = Pattern.compile("\"unitName\"\\s*:\\s*\"KCAL\"");
-
-    private static Double nutriente(String json, String nomeRegex, boolean exigeKcal) {
-        Matcher m = Pattern.compile("\"nutrientName\"\\s*:\\s*\"" + nomeRegex + "\"").matcher(json);
-        while (m.find()) {
-            int ini = json.lastIndexOf('{', m.start());
-            int fim = json.indexOf('}', m.end());
-            if (ini < 0 || fim < 0) continue;
-            String obj = json.substring(ini, fim);
-            if (exigeKcal && !UNIDADE_KCAL.matcher(obj).find()) continue;
-            Matcher v = VALOR.matcher(obj);
-            if (v.find()) return Double.parseDouble(v.group(1));
-        }
-        return null;
-    }
-
     private static String jsonStr(String json, String chave) {
         Matcher m = Pattern.compile("\"" + Pattern.quote(chave) + "\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").matcher(json);
         if (!m.find()) return "";
@@ -2995,6 +3126,8 @@ public class AlimentaBemApp extends JFrame {
     // =====================================================================
     // UTILITÁRIOS DE FORMATAÇÃO / PARSE
     // =====================================================================
+    private static String nf2(double v) { return String.format(PT_BR, "%,.2f", v); }
+
     private static String nf(double v) { return String.format(PT_BR, "%,.1f", v); }
 
     private static String qf(double v) {

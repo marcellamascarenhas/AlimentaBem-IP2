@@ -37,8 +37,18 @@ public class RelatorioService {
         if (gramas == null) return 0;
         ValorNutricional info = alimento.getValorNutricional();
         if (info == null) {
-            info = nutricaoService.consultar(alimento.getNome());
-            alimento.setValorNutricional(info);
+            // Sem valor cadastrado: tenta a USDA (ou a tabela local). Se nada funcionar, o item não entra no total
+            // em vez de derrubar o relatório inteiro.
+            try {
+                NutricaoService.Resultado r = nutricaoService.buscar(alimento.getNome());
+                if (r != null) {
+                    info = r.getValor();
+                    alimento.setValorNutricional(info);
+                }
+            } catch (IOException e) {
+                // sem conexão e sem valor local
+            }
+            if (info == null) return 0;
         }
         double fatorPara100g = gramas / 100.0;
         return fatorPara100g * (calorias ? info.getCaloriasPor100g() : info.getProteinasPor100gEmGramas());

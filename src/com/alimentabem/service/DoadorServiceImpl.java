@@ -29,6 +29,13 @@ public class DoadorServiceImpl implements DoadorService {
         if (doador == null) {
             throw new ValidacaoException("O doador não pode ser nulo.");
         }
+        // CPF com 11 dígitos e CNPJ com 14 (vale para a tela gráfica e para o console)
+        String digitos = doador.getDocumento().replaceAll("\\D", "");
+        int esperado = doador instanceof Empresa ? 14 : 11;
+        if (digitos.length() != esperado) {
+            throw new ValidacaoException((doador instanceof Empresa ? "O CNPJ" : "O CPF")
+                    + " deve conter " + esperado + " dígitos.");
+        }
         if (repositorio.buscarPorDocumento(doador.getDocumento()) != null) {
             throw new ElementoJaCadastradoException("Já existe um doador registrado com o documento: " + doador.getDocumento());
         }

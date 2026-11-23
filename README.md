@@ -65,17 +65,38 @@ JavaFX, USDA FoodData Central (https://fdc.nal.usda.gov/api-key-signup — chave
 > Para usar outro arquivo: `java -Dalimentabem.dados=caminho/arquivo.dat ...`. Para recomeçar do zero, apague esse arquivo.
 > A GUI e o console usam o mesmo arquivo — não os abra ao mesmo tempo (o último a salvar sobrescreve o outro).
 
+## Telas
+
+| | |
+|---|---|
+| ![Menu principal](docs/screenshots/01-menu.png) | ![Estoque por lote](docs/screenshots/02-estoque.png) |
+| ![Nova distribuição (FIFO)](docs/screenshots/03-nova-distribuicao.png) | ![Relatório nutricional](docs/screenshots/04-relatorio-nutricional.png) |
+| ![Valor nutricional (USDA)](docs/screenshots/05-valor-nutricional.png) | ![Alimentos](docs/screenshots/06-alimentos.png) |
+
+## Arquitetura
+
+`Interface (Swing/Console) → Fachada → Serviços → Repositórios → Modelo`. Todas as regras de negócio ficam nos
+**serviços**; a `Fachada` é o ponto único de entrada e grava os dados em arquivo. Os antigos controladores de Doador e Doação
+foram unidos aos serviços. Detalhes e justificativa em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md).
+
+## API de alimentos (USDA FoodData Central)
+
+A USDA só entende **inglês**; o sistema mantém o nome em português e traduz o termo de busca internamente
+(`Arroz → rice white long-grain raw`). Usa só alimentos genéricos (`Foundation` e `SR Legacy`), lê calorias em **kcal** pelo código
+do nutriente e, se a internet ou a chave falharem, usa uma tabela local de referência avisando a origem.
+Guia completo, chave gratuita e roteiro de teste em [`docs/API-ALIMENTOS-USDA.md`](docs/API-ALIMENTOS-USDA.md).
+
 ## Onde está cada requisito
 
 Cada implementação tem um comentário `// REQxx` logo acima. Para localizar, pesquise `REQ13` (por exemplo) no projeto.
 
 | Requisito | Regra / serviço | Tela gráfica (`AlimentaBemApp`) |
 |---|---|---|
-| REQ01 | `Doador`, `PessoaFisica`, `Empresa`, `ControladorDoador` | `abrirCadastroDoador` |
+| REQ01 | `Doador`, `PessoaFisica`, `Empresa`, `DoadorServiceImpl` | `abrirCadastroDoador` |
 | REQ02 | `InstituicaoServiceImpl`, `ViaCepService` (BrasilAPI) | `abrirCadastroInstituicao` |
 | REQ03 | `Alimento`, `AlimentoServiceImpl` | `abrirFormAlimento` |
-| REQ04 | `Doacao`, `ItemDoacao`, `ControladorDoacao` | `abrirCadastroDoacao` |
-| REQ05 | `NutricaoService` (USDA) | `abrirValorNutricional` |
+| REQ04 | `Doacao`, `ItemDoacao`, `DoacaoServiceImpl` | `abrirCadastroDoacao` |
+| REQ05 | `NutricaoService`, `CatalogoAlimentos` (USDA) | `abrirValorNutricional` |
 | REQ06 | `RelatorioService.calcularNutricionalDaDoacao` | `nutriDoacao` |
 | REQ07 | `LoteEstoque`, `EstoqueService` | `abrirTelaEstoque` |
 | REQ08 | `Distribuicao`, `DistribuicaoServiceImpl` | `abrirCadastroDistribuicao` |
@@ -85,7 +106,7 @@ Cada implementação tem um comentário `// REQxx` logo acima. Para localizar, p
 | REQ12 | `EstoqueService.listarVencendoEm` | `abrirEstoqueAVencer` |
 | REQ13 | `LoteEstoque.retirar`, `EstoqueService` | `planejarFIFO` |
 | REQ14 | `ViaCepService`, `InstituicaoServiceImpl` | `consultarCep` |
-| REQ15 | `Doacao.validarQueTemItens`, `ControladorDoacao` | `abrirCadastroDoacao` |
+| REQ15 | `Doacao.validarQueTemItens`, `DoacaoServiceImpl` | `abrirCadastroDoacao` |
 | REQ16 | `LoteEstoque.retirar`, `DistribuicaoServiceImpl` | `abrirAdicionarItemDistribuicao` |
 | REQ17 | `DistribuicaoServiceImpl` | `validarERegistrarDistribuicao` |
 | REQ18 | `EstoqueService.sugerirLotesParaDistribuicao` | `planejarFIFO` |
@@ -115,6 +136,8 @@ Os testes ficam na pasta `test/` (espelhando os pacotes de `src/`):
 * `service/AlimentoServiceImplTest` — cadastro, busca, alteração e exclusão de alimentos;
 * `service/DistribuicaoServiceImplTest` — baixa por validade (FIFO), bloqueio de lotes vencidos, quantidades inválidas, capacidade mensal;
 * `service/EstoqueServiceTest` — entrada e saída de estoque;
+* `service/DoadorEDoacaoServiceTest` — CPF/CNPJ, doador com doações, doação sem itens, item vencido (nada é gravado);
+* `service/NutricaoServiceTest` — tradução português→inglês, leitura do JSON da USDA (kcal x kJ) e contingência local, sem precisar de internet;
 * `repository/PersistenciaArquivoTest` — grava no arquivo `.dat`, "reabre" o sistema e confere se tudo voltou igual.
 
 **No IntelliJ:** clique com o botão direito em `test` → *Mark Directory as* → *Test Sources Root*. Ao abrir um teste, use *Alt+Enter* em `@Test` → *Add 'JUnit5.x' to classpath* (ou *File → Project Structure → Libraries → + → From Maven → `org.junit.jupiter:junit-jupiter:5.10.1`*). Depois, botão direito em `test` → *Run 'All Tests'*.
