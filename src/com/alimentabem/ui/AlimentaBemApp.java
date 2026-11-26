@@ -19,6 +19,7 @@ import javax.swing.table.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Arc2D;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
@@ -121,25 +122,40 @@ public class AlimentaBemApp extends JFrame {
     // TEMA
     // =====================================================================
     static final class Theme {
-        // Paleta "Sattis": 00606c / 019391 / 00dfc3 / ffffff + azul-marinho de apoio
-        static final Color NAVY = new Color(0x2A3550);
-        static final Color PRIMARY = new Color(0x019391);
-        static final Color PRIMARY_DARK = new Color(0x00606C);
-        static final Color PRIMARY_SOFT = new Color(0xDDF6F2);
-        static final Color ACCENT = new Color(0x00DFC3);
-        static final Color BG = new Color(0xF0F6F7);
-        static final Color CARD = Color.WHITE;
-        static final Color TEXT = new Color(0x1E293B);
-        static final Color MUTED = new Color(0x64748B);
-        static final Color BORDER = new Color(0xD8E6E9);
-        static final Color DANGER = new Color(0xDC2626);
-        static final Color WARN = new Color(0xB45309);
-        static final Color OK = new Color(0x0B8F78);
+        // Paleta: laranja #EF7B52, pêssego #F2B067, amarelo #F6D56B e verde-oliva #939C5F.
+        // Versões mais escuras servem só para texto e botões (contraste); o fundo é um creme de papel.
+        static final Color ORANGE = new Color(0xEF7B52);
+        static final Color ORANGE_DARK = new Color(0xC4552F);
+        static final Color PEACH = new Color(0xF2B067);
+        static final Color YELLOW = new Color(0xF6D56B);
+        static final Color OLIVE = new Color(0x939C5F);
+        static final Color OLIVE_DARK = new Color(0x5F6B35);
+        static final Color ORANGE_SOFT = new Color(0xFCE4D8);
+        static final Color PEACH_SOFT = new Color(0xFAE6C8);
+        static final Color YELLOW_SOFT = new Color(0xFBF0C4);
+        static final Color OLIVE_SOFT = new Color(0xE8EBD3);
+        static final Color SAND = new Color(0xF3E4C6);
 
-        static final String TITLE_FAMILY = pick("Poppins", "Montserrat", "Segoe UI Semibold",
-                "Segoe UI", "SF Pro Display", "Helvetica Neue", "Ubuntu", Font.SANS_SERIF);
-        static final String BODY_FAMILY = pick("Inter", "Segoe UI", "SF Pro Text", "Roboto",
-                "Helvetica Neue", "Ubuntu", Font.SANS_SERIF);
+        // nomes usados pelo resto da interface
+        static final Color NAVY = new Color(0x3B2F27);          // marrom escuro
+        static final Color PRIMARY = OLIVE_DARK;                // ações principais
+        static final Color PRIMARY_DARK = new Color(0x4A5528);
+        static final Color PRIMARY_SOFT = OLIVE_SOFT;
+        static final Color ACCENT = ORANGE;
+        static final Color BG = new Color(0xFBF5E9);
+        static final Color CARD = new Color(0xFFFDF8);
+        static final Color TEXT = new Color(0x3B2F27);
+        static final Color MUTED = new Color(0x7B6C5E);
+        static final Color BORDER = new Color(0xE6D9C3);
+        static final Color DANGER = new Color(0xB5432B);
+        static final Color WARN = new Color(0x9A5B12);
+        static final Color OK = new Color(0x56662A);
+
+        // Títulos com serifa (aspecto editorial, menos "app genérico"); texto em sans humanista.
+        static final String TITLE_FAMILY = pick("Fraunces", "Lora", "Merriweather", "Playfair Display",
+                "Georgia", "Cambria", "Palatino Linotype", "Book Antiqua", Font.SERIF);
+        static final String BODY_FAMILY = pick("Nunito", "Nunito Sans", "Source Sans 3", "Segoe UI",
+                "Calibri", "Helvetica Neue", "Ubuntu", Font.SANS_SERIF);
 
         static String pick(String... names) {
             Set<String> disponiveis = new HashSet<>(Arrays.asList(
@@ -159,7 +175,8 @@ public class AlimentaBemApp extends JFrame {
         try {
             UIManager.put("nimbusBase", Theme.PRIMARY_DARK);
             UIManager.put("nimbusFocus", Theme.ACCENT);
-            UIManager.put("nimbusSelectionBackground", Theme.PRIMARY);
+            UIManager.put("nimbusSelectionBackground", Theme.ACCENT);
+            UIManager.put("nimbusLightBackground", Theme.CARD);
             UIManager.put("control", Theme.BG);
             for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
                 if ("Nimbus".equals(info.getName())) {
@@ -201,7 +218,7 @@ public class AlimentaBemApp extends JFrame {
             setOpaque(false);
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             setBorder(new EmptyBorder(9, 18, 9, 18));
-            setForeground(kind == Kind.SECONDARY ? Theme.PRIMARY_DARK : Color.WHITE);
+            setForeground(kind == Kind.SECONDARY ? Theme.TEXT : Color.WHITE);
             addMouseListener(new MouseAdapter() {
                 @Override public void mouseEntered(MouseEvent e) { hover = true; repaint(); }
                 @Override public void mouseExited(MouseEvent e) { hover = false; pressed = false; repaint(); }
@@ -214,54 +231,65 @@ public class AlimentaBemApp extends JFrame {
         protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            Color c1, c2;
+            Color fundo;
             switch (kind) {
-                case DANGER: c1 = Theme.DANGER; c2 = new Color(0xF43F5E); break;
-                case SECONDARY: c1 = Color.WHITE; c2 = Color.WHITE; break;
-                default: c1 = Theme.PRIMARY_DARK; c2 = Theme.PRIMARY;
+                case DANGER: fundo = Theme.DANGER; break;
+                case SECONDARY: fundo = Theme.CARD; break;
+                default: fundo = Theme.OLIVE_DARK;
             }
             if (!isEnabled()) {
-                c1 = new Color(0xC9D6D8);
-                c2 = c1;
+                fundo = new Color(0xDDD3C0);
             } else if (pressed) {
-                c1 = c1.darker();
-                c2 = c2.darker();
+                fundo = fundo.darker().darker();
             } else if (hover) {
-                if (kind == Kind.SECONDARY) {
-                    c1 = Theme.PRIMARY_SOFT;
-                    c2 = Theme.PRIMARY_SOFT;
-                } else if (kind == Kind.PRIMARY) {
-                    c1 = Theme.PRIMARY;
-                    c2 = new Color(0x00C2AA);
-                } else {
-                    c1 = c1.darker();
-                    c2 = c2.darker();
-                }
+                fundo = kind == Kind.SECONDARY ? Theme.PEACH_SOFT : fundo.darker();
             }
-            g2.setPaint(new GradientPaint(0, 0, c1, getWidth(), 0, c2));
-            g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 16, 16);
+            g2.setColor(fundo);
+            g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
             if (kind == Kind.SECONDARY) {
                 g2.setColor(Theme.BORDER);
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 16, 16);
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
             }
             g2.dispose();
             super.paintComponent(g);
         }
     }
 
-    /** Fundo em gradiente azul-marinho → verde-água, com formas translúcidas decorativas. */
-    static class GradientPanel extends JPanel {
-        GradientPanel() { setOpaque(false); }
+    /** Cabeçalho "de papel recortado": fundo areia com formas orgânicas chapadas (sem degradê). */
+    static class OrganicPanel extends JPanel {
+        OrganicPanel() { setOpaque(false); }
 
-        private static Path2D.Double onda(int w, int h, double base, double amp, double fase, double periodo) {
-            Path2D.Double path = new Path2D.Double();
-            path.moveTo(0, h);
-            for (int x = 0; x <= w; x += 6) {
-                path.lineTo(x, h * base + Math.sin(x / periodo + fase) * h * amp);
+        /** Mancha irregular desenhada com curvas suaves (parece recortada à mão, não um círculo perfeito). */
+        static Path2D.Double mancha(double cx, double cy, double r, double fase) {
+            int n = 9;
+            double[] px = new double[n], py = new double[n];
+            for (int i = 0; i < n; i++) {
+                double ang = 2 * Math.PI * i / n;
+                double raio = r * (0.80 + 0.17 * Math.sin(i * 2.3 + fase) + 0.08 * Math.cos(i * 1.1 + fase * 2));
+                px[i] = cx + raio * Math.cos(ang);
+                py[i] = cy + raio * Math.sin(ang);
             }
-            path.lineTo(w, h);
-            path.closePath();
-            return path;
+            Path2D.Double p = new Path2D.Double();
+            p.moveTo(px[0], py[0]);
+            for (int i = 0; i < n; i++) {         // Catmull-Rom convertido em Bézier
+                int i0 = (i - 1 + n) % n, i1 = i, i2 = (i + 1) % n, i3 = (i + 2) % n;
+                p.curveTo(px[i1] + (px[i2] - px[i0]) / 6, py[i1] + (py[i2] - py[i0]) / 6,
+                        px[i2] - (px[i3] - px[i1]) / 6, py[i2] - (py[i3] - py[i1]) / 6, px[i2], py[i2]);
+            }
+            p.closePath();
+            return p;
+        }
+
+        /** Folha: duas curvas que se encontram nas pontas, girada pelo ângulo dado. */
+        static Shape folha(double x, double y, double comp, double larg, double angulo) {
+            Path2D.Double f = new Path2D.Double();
+            f.moveTo(0, 0);
+            f.curveTo(comp * 0.25, -larg, comp * 0.75, -larg * 0.85, comp, 0);
+            f.curveTo(comp * 0.75, larg * 0.95, comp * 0.25, larg * 1.05, 0, 0);
+            f.closePath();
+            AffineTransform t = AffineTransform.getTranslateInstance(x, y);
+            t.rotate(angulo);
+            return t.createTransformedShape(f);
         }
 
         @Override
@@ -269,36 +297,34 @@ public class AlimentaBemApp extends JFrame {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             int w = getWidth(), h = getHeight();
-            g2.setPaint(new LinearGradientPaint(0, 0, w, h, new float[]{0f, 0.55f, 1f},
-                    new Color[]{Theme.NAVY, Theme.PRIMARY_DARK, Theme.PRIMARY}));
+            g2.setColor(Theme.PEACH_SOFT);
             g2.fillRect(0, 0, w, h);
-            // formas translúcidas
-            g2.setColor(new Color(0, 223, 195, 40));
-            g2.fill(new Ellipse2D.Double(w * 0.70, -h * 0.9, h * 2.6, h * 2.6));
-            g2.setColor(new Color(255, 255, 255, 22));
-            g2.fill(new Ellipse2D.Double(w * 0.87, h * 0.15, h * 1.7, h * 1.7));
-            // ondas na base
-            g2.setColor(new Color(0, 223, 195, 34));
-            g2.fill(onda(w, h, 0.80, 0.07, 0.4, Math.max(40.0, w / 7.0)));
-            g2.setColor(new Color(255, 255, 255, 26));
-            g2.fill(onda(w, h, 0.88, 0.06, 2.2, Math.max(30.0, w / 5.0)));
-            g2.setPaint(new GradientPaint(0, 0, Theme.ACCENT, w, 0, new Color(0, 223, 195, 0)));
-            g2.fillRect(0, h - 3, w, 3);
+            // formas chapadas sobrepostas, como papel recortado
+            g2.setColor(Theme.YELLOW);
+            g2.fill(mancha(w - h * 0.30, h * 0.28, h * 0.95, 0.4));
+            g2.setColor(Theme.PEACH);
+            g2.fill(mancha(w - h * 1.50, h * 1.10, h * 0.80, 2.1));
+            g2.setColor(Theme.ORANGE);
+            g2.fill(mancha(w - h * 0.10, h * 1.05, h * 0.74, 4.0));
+            g2.setColor(Theme.OLIVE);
+            g2.fill(folha(w - h * 2.05, h * 0.95, h * 0.95, h * 0.21, -0.95));
+            g2.setColor(Theme.OLIVE_DARK);
+            g2.fill(folha(w - h * 0.95, h * 0.80, h * 0.62, h * 0.15, -2.35));
+            g2.setColor(new Color(0xE6C99A));
+            g2.fillRect(0, h - 2, w, 2);
             g2.dispose();
             super.paintComponent(g);
         }
     }
 
-    /** Painel branco com cantos arredondados e sombra suave (opcionalmente com barra de destaque). */
+    /** Painel claro de cantos arredondados, com borda fina e sombra quase imperceptível. */
     static class RoundPanel extends JPanel {
         private final Color fill;
-        private final boolean barra;
 
         RoundPanel(Color fill) { this(fill, false); }
 
-        RoundPanel(Color fill, boolean barra) {
+        RoundPanel(Color fill, boolean destaque) {
             this.fill = fill;
-            this.barra = barra;
             setOpaque(false);
             setBorder(new EmptyBorder(14, 16, 14, 16));
         }
@@ -307,17 +333,10 @@ public class AlimentaBemApp extends JFrame {
         protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(new Color(0, 40, 50, 18));
+            g2.setColor(new Color(59, 47, 39, 12));
             g2.fillRoundRect(1, 3, getWidth() - 3, getHeight() - 4, 18, 18);
             g2.setColor(fill);
             g2.fillRoundRect(0, 0, getWidth() - 3, getHeight() - 4, 18, 18);
-            if (barra) {
-                Shape antigo = g2.getClip();
-                g2.setClip(new RoundRectangle2D.Double(0, 0, getWidth() - 3, getHeight() - 4, 18, 18));
-                g2.setPaint(new GradientPaint(0, 0, Theme.PRIMARY_DARK, getWidth(), 0, Theme.ACCENT));
-                g2.fillRect(0, 0, getWidth(), 5);
-                g2.setClip(antigo);
-            }
             g2.setColor(Theme.BORDER);
             g2.drawRoundRect(0, 0, getWidth() - 3, getHeight() - 4, 18, 18);
             g2.dispose();
@@ -356,13 +375,13 @@ public class AlimentaBemApp extends JFrame {
         }
     }
 
-    /** Cartão clicável do menu principal, em quatro estilos. */
+    /** Cartão clicável do menu principal: chapado, cada um com um tom da paleta. */
     static class MenuCard extends JPanel {
-        static final int CLARO = 0, ESCURO = 1, GRADIENTE = 2, PERIGO = 3;
+        static final int CLARO = 0, OLIVA = 1, LARANJA = 2, SAIR = 3, CLARO_OLIVA = 4, CLARO_AMARELO = 5, CLARO_PESSEGO = 6;
         private final int estilo;
         private boolean hover;
 
-        MenuCard(String badge, String titulo, String descricao, int estilo, Runnable acao) {
+        MenuCard(String icone, String titulo, String descricao, int estilo, Runnable acao) {
             this.estilo = estilo;
             setLayout(new BorderLayout(14, 0));
             setOpaque(false);
@@ -371,27 +390,36 @@ public class AlimentaBemApp extends JFrame {
 
             Color bBg, bFg, tCor, dCor;
             switch (estilo) {
-                case ESCURO:
-                    bBg = new Color(0, 223, 195, 45); bFg = Theme.ACCENT;
-                    tCor = Color.WHITE; dCor = new Color(0xB8C4D6); break;
-                case GRADIENTE:
-                    bBg = new Color(255, 255, 255, 60); bFg = Color.WHITE;
-                    tCor = Color.WHITE; dCor = new Color(0xE0FBF7); break;
-                case PERIGO:
-                    bBg = new Color(0xFEE2E2); bFg = Theme.DANGER;
+                case OLIVA:
+                    bBg = new Color(255, 255, 255, 40); bFg = Theme.YELLOW;
+                    tCor = Color.WHITE; dCor = new Color(0xEEF0DC); break;
+                case LARANJA:
+                    bBg = new Color(255, 255, 255, 85); bFg = Theme.TEXT;
+                    tCor = Theme.TEXT; dCor = Theme.TEXT; break;
+                case SAIR:
+                    bBg = Theme.PEACH_SOFT; bFg = Theme.MUTED;
+                    tCor = Theme.TEXT; dCor = Theme.MUTED; break;
+                case CLARO_OLIVA:
+                    bBg = Theme.OLIVE_SOFT; bFg = Theme.OLIVE_DARK;
+                    tCor = Theme.TEXT; dCor = Theme.MUTED; break;
+                case CLARO_AMARELO:
+                    bBg = Theme.YELLOW_SOFT; bFg = new Color(0x8A6A12);
+                    tCor = Theme.TEXT; dCor = Theme.MUTED; break;
+                case CLARO_PESSEGO:
+                    bBg = Theme.PEACH_SOFT; bFg = new Color(0xA8641A);
                     tCor = Theme.TEXT; dCor = Theme.MUTED; break;
                 default:
-                    bBg = Theme.PRIMARY_SOFT; bFg = Theme.PRIMARY_DARK;
+                    bBg = Theme.ORANGE_SOFT; bFg = Theme.ORANGE_DARK;
                     tCor = Theme.TEXT; dCor = Theme.MUTED;
             }
 
             JPanel badgeWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
             badgeWrap.setOpaque(false);
-            badgeWrap.add(new Badge(badge, bBg, bFg));
+            badgeWrap.add(new Badge(icone, bBg, bFg));
             add(badgeWrap, BorderLayout.WEST);
 
             JLabel t = new JLabel(titulo);
-            t.setFont(Theme.title(16));
+            t.setFont(Theme.title(17));
             t.setForeground(tCor);
             JLabel s = new JLabel("<html><body style='width:118px'>" + descricao + "</body></html>");
             s.setFont(Theme.body(12));
@@ -417,26 +445,18 @@ public class AlimentaBemApp extends JFrame {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             int w = getWidth() - 3, h = getHeight() - 5;
-            g2.setColor(estilo == CLARO || estilo == PERIGO
-                    ? new Color(0, 40, 50, hover ? 34 : 16)
-                    : new Color(0, 223, 195, hover ? 60 : 30));
-            g2.fillRoundRect(1, 4, w, h, 22, 22);
-            if (estilo == ESCURO) {
-                g2.setPaint(new GradientPaint(0, 0, Theme.NAVY, w, h, new Color(0x161D33)));
-            } else if (estilo == GRADIENTE) {
-                g2.setPaint(new LinearGradientPaint(0, 0, w, h, new float[]{0f, 0.65f, 1f},
-                        new Color[]{Theme.PRIMARY_DARK, Theme.PRIMARY, new Color(0x00D2B8)}));
-            } else {
-                g2.setColor(Color.WHITE);
-            }
-            g2.fillRoundRect(0, 0, w, h, 22, 22);
+            boolean cheio = estilo == OLIVA || estilo == LARANJA;
+            g2.setColor(new Color(59, 47, 39, hover ? 32 : 16));
+            g2.fillRoundRect(1, 4, w, h, 20, 20);
+            g2.setColor(estilo == OLIVA ? Theme.OLIVE_DARK : estilo == LARANJA ? Theme.ORANGE : Theme.CARD);
+            g2.fillRoundRect(0, 0, w, h, 20, 20);
             // rodapé "Abrir →"
-            Color corRodape = estilo == ESCURO ? Theme.ACCENT : estilo == GRADIENTE ? Color.WHITE
-                    : estilo == PERIGO ? Theme.DANGER : Theme.PRIMARY;
+            Color corRodape = estilo == OLIVA ? Theme.YELLOW : estilo == LARANJA ? Theme.TEXT
+                    : estilo == SAIR ? Theme.MUTED : Theme.ORANGE_DARK;
             g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             g2.setFont(Theme.bodyBold(12));
             g2.setColor(corRodape);
-            String rotulo = estilo == PERIGO ? "Encerrar" : "Abrir";
+            String rotulo = estilo == SAIR ? "Encerrar" : "Abrir";
             int yb, ax;
             if (h >= 130) {                       // cartão alto: "Abrir →" no rodapé
                 int xb = 18;
@@ -453,11 +473,11 @@ public class AlimentaBemApp extends JFrame {
             g2.drawLine(ax + 8, yb, ax + 12, yb - 4);
             if (hover) {
                 g2.setStroke(new BasicStroke(2.2f));
-                g2.setColor(Theme.ACCENT);
-                g2.drawRoundRect(1, 1, w - 2, h - 2, 22, 22);
-            } else if (estilo == CLARO || estilo == PERIGO) {
+                g2.setColor(cheio ? Theme.YELLOW : Theme.ORANGE);
+                g2.drawRoundRect(1, 1, w - 2, h - 2, 20, 20);
+            } else if (!cheio) {
                 g2.setColor(Theme.BORDER);
-                g2.drawRoundRect(0, 0, w, h, 22, 22);
+                g2.drawRoundRect(0, 0, w, h, 20, 20);
             }
             g2.dispose();
             super.paintComponent(g);
@@ -597,37 +617,31 @@ public class AlimentaBemApp extends JFrame {
         }
     }
 
-    /** Selo branco arredondado com a logo, usado nos cabeçalhos. */
+    /** Logo do app desenhada direto sobre o fundo (sem moldura). */
     static final class LogoChip extends JComponent {
         private final int lado;
         private final Image img;
 
         LogoChip(int lado) {
             this.lado = lado;
-            this.img = Marca.escalada((int) (lado * 0.74));
-            setPreferredSize(new Dimension(lado + 8, lado + 10));
+            this.img = Marca.escalada(lado);
+            setPreferredSize(new Dimension(lado + 6, lado + 6));
         }
 
         @Override
         protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            int arc = (int) (lado * 0.3);
-            g2.setColor(new Color(0, 20, 30, 45));
-            g2.fillRoundRect(4, 8, lado, lado, arc, arc);
-            g2.setPaint(new GradientPaint(0, 0, Color.WHITE, 0, lado, new Color(0xE9FBF8)));
-            g2.fillRoundRect(2, 2, lado, lado, arc, arc);
             if (img != null) {
-                int s = img.getWidth(null);
-                g2.drawImage(img, 2 + (lado - s) / 2, 2 + (lado - s) / 2, null);
+                g2.drawImage(img, 3, 3, null);
             } else {
-                Icones.desenhar(g2, "alimento", 2 + lado * 0.2, 2 + lado * 0.2, lado * 0.6, Theme.PRIMARY);
+                Icones.desenhar(g2, "alimento", 3 + lado * 0.15, 3 + lado * 0.15, lado * 0.7, Theme.ORANGE);
             }
             g2.dispose();
         }
     }
 
-    /** Fundo da janela principal: cor base + brilhos radiais suaves. */
+    /** Fundo da janela principal: creme de papel com duas manchas suaves nos cantos. */
     static final class FundoPanel extends JPanel {
         @Override
         protected void paintComponent(Graphics g) {
@@ -636,61 +650,23 @@ public class AlimentaBemApp extends JFrame {
             int w = getWidth(), h = getHeight();
             g2.setColor(Theme.BG);
             g2.fillRect(0, 0, w, h);
-            float r1 = Math.max(w, h) * 0.55f;
-            g2.setPaint(new RadialGradientPaint(w * 0.92f, h * 0.35f, r1, new float[]{0f, 1f},
-                    new Color[]{new Color(0, 223, 195, 38), new Color(0, 223, 195, 0)}));
-            g2.fillRect(0, 0, w, h);
-            g2.setPaint(new RadialGradientPaint(w * 0.05f, h * 0.95f, r1, new float[]{0f, 1f},
-                    new Color[]{new Color(1, 147, 145, 34), new Color(1, 147, 145, 0)}));
-            g2.fillRect(0, 0, w, h);
+            double r = Math.min(w, h) * 0.34;
+            g2.setColor(new Color(246, 213, 107, 38));
+            g2.fill(OrganicPanel.mancha(w * 0.97, h * 0.93, r, 1.3));
+            g2.setColor(new Color(147, 156, 95, 30));
+            g2.fill(OrganicPanel.mancha(w * 0.02, h * 0.98, r * 0.9, 3.1));
             g2.dispose();
         }
     }
 
-    /** Cápsula translúcida (efeito vidro) usada no cabeçalho para mostrar a data. */
-    static final class PillInfo extends JComponent {
-        private final String linha1;
-        private final String linha2;
-
-        PillInfo(String linha1, String linha2) {
-            this.linha1 = linha1;
-            this.linha2 = linha2;
-            setPreferredSize(new Dimension(230, 64));
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-            int w = getWidth() - 1, h = getHeight() - 1;
-            g2.setPaint(new GradientPaint(0, 0, new Color(255, 255, 255, 60), 0, h, new Color(255, 255, 255, 22)));
-            g2.fillRoundRect(0, 0, w, h, h, h);
-            g2.setColor(new Color(255, 255, 255, 90));
-            g2.drawRoundRect(0, 0, w, h, h, h);
-            Icones.desenhar(g2, "relogio", 18, (h - 24) / 2.0, 24, Theme.ACCENT);
-            g2.setColor(Color.WHITE);
-            g2.setFont(Theme.bodyBold(14));
-            g2.drawString(linha1, 54, h / 2 - 3);
-            g2.setColor(new Color(0xBFF5EE));
-            g2.setFont(Theme.body(12));
-            g2.drawString(linha2, 54, h / 2 + 15);
-            g2.dispose();
-        }
-    }
-
-    /** Barra de progresso com gradiente (teal → menta; âmbar acima de 80%; vermelha em 100%). */
+    /** Barra de progresso chapada (verde-oliva; laranja acima de 80%; vermelho ao atingir 100%). */
     static void pintarBarra(Graphics2D g2, int x, int y, int w, int h, double frac) {
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2.setColor(new Color(0xE0ECEE));
+        g2.setColor(new Color(0xEADFC9));
         g2.fillRoundRect(x, y, w, h, h, h);
         if (frac <= 0) return;
         int fw = Math.max(h, (int) Math.round(w * Math.min(1.0, frac)));
-        Color a, b;
-        if (frac >= 1.0) { a = new Color(0xEF4444); b = new Color(0xB91C1C); }
-        else if (frac >= 0.8) { a = new Color(0xFBBF24); b = new Color(0xD97706); }
-        else { a = Theme.PRIMARY; b = Theme.ACCENT; }
-        g2.setPaint(new GradientPaint(x, 0, a, x + fw, 0, b));
+        g2.setColor(frac >= 1.0 ? Theme.DANGER : frac >= 0.8 ? Theme.ORANGE : Theme.OLIVE);
         g2.fillRoundRect(x, y, fw, h, h, h);
     }
 
@@ -780,9 +756,9 @@ public class AlimentaBemApp extends JFrame {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             int w = getWidth(), h = getHeight();
-            g2.setColor(selecionada ? new Color(0xC8F0EA) : Color.WHITE);
+            g2.setColor(selecionada ? new Color(0xF8DDB5) : Color.WHITE);
             g2.fillRect(0, 0, w, h);
-            g2.setColor(new Color(0xEDF3F4));
+            g2.setColor(new Color(0xEFE4CF));
             g2.drawLine(0, h - 1, w, h - 1);
             g2.setFont(Theme.bodyBold(13));
             g2.setColor(Theme.TEXT);
@@ -831,7 +807,7 @@ public class AlimentaBemApp extends JFrame {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             int w = c.getWidth(), h = c.getHeight();
-            g2.setColor(c.isEnabled() ? Color.WHITE : new Color(0xE8F1F2));
+            g2.setColor(c.isEnabled() ? Theme.CARD : new Color(0xF0E6D2));
             g2.fillRoundRect(0, 0, w - 1, h - 1, 12, 12);
             g2.setColor(c.hasFocus() ? Theme.PRIMARY : Theme.BORDER);
             g2.drawRoundRect(0, 0, w - 1, h - 1, 12, 12);
@@ -918,10 +894,10 @@ public class AlimentaBemApp extends JFrame {
                 g2.drawString(r, 0, y + (linha + fm.getAscent() - fm.getDescent()) / 2);
                 int bw = Math.max(40, w - labelW - valW);
                 double frac = valores.get(i) / max;
-                g2.setColor(new Color(0xE3EEF0));
+                g2.setColor(new Color(0xEADFC9));
                 g2.fillRoundRect(labelW, y + (linha - 14) / 2, bw, 14, 14, 14);
                 int fw = Math.max(14, (int) Math.round(bw * frac));
-                g2.setPaint(new GradientPaint(labelW, 0, Theme.PRIMARY_DARK, labelW + fw, 0, Theme.ACCENT));
+                g2.setColor(Theme.ORANGE);
                 g2.fillRoundRect(labelW, y + (linha - 14) / 2, fw, 14, 14, 14);
                 g2.setColor(Theme.PRIMARY_DARK);
                 g2.setFont(Theme.bodyBold(12));
@@ -939,13 +915,13 @@ public class AlimentaBemApp extends JFrame {
 
         static Color[] corStatus(String s) {
             if (s.startsWith("Vencido") || s.startsWith("Bloqueado") || s.startsWith("ESTOQUE"))
-                return new Color[]{new Color(0xFEE2E2), new Color(0xB91C1C)};
+                return new Color[]{new Color(0xF8D9CE), new Color(0x9C3A22)};
             if (s.startsWith("Vence"))
-                return new Color[]{new Color(0xFEF3C7), new Color(0x92400E)};
+                return new Color[]{new Color(0xFBF0C4), new Color(0x7A5A00)};
             if (s.startsWith("Válido") || s.startsWith("Sugerido"))
-                return new Color[]{new Color(0xD3F6EF), new Color(0x00675A)};
+                return new Color[]{new Color(0xE4E8CB), new Color(0x4C5A22)};
             if (s.startsWith("Esgotado") || s.startsWith("Reserva"))
-                return new Color[]{new Color(0xE5E9EC), new Color(0x475569)};
+                return new Color[]{new Color(0xEDE5D6), new Color(0x6E6253)};
             return null;
         }
 
@@ -958,8 +934,8 @@ public class AlimentaBemApp extends JFrame {
                 fundo = t.getSelectionBackground();
             } else {
                 Object h = t.getClientProperty("hoverRow");
-                fundo = (h instanceof Integer && (Integer) h == r) ? new Color(0xE3F6F3)
-                        : (r % 2 == 0 ? Color.WHITE : new Color(0xF6FBFB));
+                fundo = (h instanceof Integer && (Integer) h == r) ? new Color(0xFCEFD9)
+                        : (r % 2 == 0 ? Theme.CARD : new Color(0xFFFAF0));
             }
             setBorder(new EmptyBorder(0, 12, 0, 12));
             setFont(Theme.body(13));
@@ -985,10 +961,10 @@ public class AlimentaBemApp extends JFrame {
         public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foc, int r, int c) {
             JLabel l = (JLabel) super.getTableCellRendererComponent(t, v, false, false, r, c);
             l.setOpaque(true);
-            l.setBackground(Theme.NAVY);
-            l.setForeground(Color.WHITE);
+            l.setBackground(Theme.SAND);
+            l.setForeground(Theme.TEXT);
             l.setFont(Theme.bodyBold(12));
-            l.setBorder(new EmptyBorder(0, 12, 0, 12));
+            l.setBorder(new CompoundBorder(new MatteBorder(0, 0, 2, 0, Theme.ORANGE), new EmptyBorder(0, 12, 0, 12)));
             l.setHorizontalAlignment(SwingConstants.LEFT);
             return l;
         }
@@ -1039,13 +1015,13 @@ public class AlimentaBemApp extends JFrame {
 
     private static void habilitarCampo(JTextField f, boolean ativo) {
         f.setEditable(ativo);
-        f.setBackground(ativo ? Color.WHITE : new Color(0xE8F1F2));
+        f.setBackground(ativo ? Theme.CARD : new Color(0xF0E6D2));
     }
 
     private static JTextField campoSomenteLeitura() {
         JTextField f = campo();
         f.setEditable(false);
-        f.setBackground(new Color(0xE8F1F2));
+        f.setBackground(new Color(0xF0E6D2));
         return f;
     }
 
@@ -1099,7 +1075,7 @@ public class AlimentaBemApp extends JFrame {
         cb.setFont(Theme.body(13));
         cb.setUI(new ModernComboBoxUI());
         cb.setOpaque(false);
-        cb.setBackground(Color.WHITE);
+        cb.setBackground(Theme.CARD);
         cb.setBorder(new EmptyBorder(2, 6, 2, 2));
         cb.setPreferredSize(new Dimension(200, 36));
         return cb;
@@ -1138,7 +1114,7 @@ public class AlimentaBemApp extends JFrame {
                     g2.setFont(Theme.bodyBold(14));
                     FontMetrics fm = g2.getFontMetrics();
                     int cx = getWidth() / 2, cy = Math.max(getHeight() / 2, 70);
-                    Icones.desenhar(g2, "estoque", cx - 20, cy - 58, 40, new Color(0xB3CACE));
+                    Icones.desenhar(g2, "estoque", cx - 20, cy - 58, 40, new Color(0xD9C9AE));
                     g2.setColor(Theme.MUTED);
                     g2.drawString(msg, cx - fm.stringWidth(msg) / 2, cy + 2);
                     g2.dispose();
@@ -1150,7 +1126,7 @@ public class AlimentaBemApp extends JFrame {
         t.setIntercellSpacing(new Dimension(0, 0));
         t.setFillsViewportHeight(true);
         t.setFont(Theme.body(13));
-        t.setSelectionBackground(new Color(0xC8F0EA));
+        t.setSelectionBackground(new Color(0xF8DDB5));
         t.setSelectionForeground(Theme.TEXT);
         t.setAutoCreateRowSorter(true);
         t.setDefaultRenderer(Object.class, new ZebraRenderer());
@@ -1197,20 +1173,20 @@ public class AlimentaBemApp extends JFrame {
     }
 
     private static JPanel cabecalho(String titulo, String subtitulo) {
-        GradientPanel p = new GradientPanel();
-        p.setLayout(new BorderLayout(16, 0));
-        p.setBorder(new EmptyBorder(14, 22, 20, 24));
+        OrganicPanel p = new OrganicPanel();
+        p.setLayout(new BorderLayout(14, 0));
+        p.setBorder(new EmptyBorder(14, 22, 18, 24));
         p.add(new LogoChip(46), BorderLayout.WEST);
         JPanel textos = new JPanel(new GridLayout(0, 1, 0, 1));
         textos.setOpaque(false);
         JLabel t = new JLabel(titulo);
-        t.setFont(Theme.title(21));
-        t.setForeground(Color.WHITE);
+        t.setFont(Theme.title(22));
+        t.setForeground(Theme.TEXT);
         textos.add(t);
         if (subtitulo != null && !subtitulo.isEmpty()) {
             JLabel s = new JLabel(subtitulo);
             s.setFont(Theme.body(12));
-            s.setForeground(new Color(0xBFF5EE));
+            s.setForeground(Theme.MUTED);
             textos.add(s);
         }
         p.add(textos, BorderLayout.CENTER);
@@ -1311,15 +1287,15 @@ public class AlimentaBemApp extends JFrame {
             switch (tipo) {
                 case SUCESSO: cor = Theme.OK; break;
                 case ERRO: cor = Theme.DANGER; break;
-                case AVISO: cor = new Color(0xD97706); break;
-                default: cor = Theme.PRIMARY;
+                case AVISO: cor = new Color(0xC9831F); break;
+                default: cor = Theme.ACCENT;
             }
             final Color corFinal = cor;
 
             JPanel faixa = new JPanel() {
                 @Override protected void paintComponent(Graphics g) {
                     Graphics2D g2 = (Graphics2D) g.create();
-                    g2.setPaint(new GradientPaint(0, 0, corFinal, getWidth(), 0, Theme.ACCENT));
+                    g2.setColor(corFinal);
                     g2.fillRect(0, 0, getWidth(), getHeight());
                     g2.dispose();
                 }
@@ -1332,7 +1308,7 @@ public class AlimentaBemApp extends JFrame {
             JLabel corpo = new JLabel("<html><body style='width:300px'>"
                     + esc(texto).replace("\n", "<br>") + "</body></html>");
             corpo.setFont(Theme.body(13));
-            corpo.setForeground(new Color(0x475569));
+            corpo.setForeground(new Color(0x6E6253));
             JPanel textos = new JPanel(new BorderLayout(0, 6));
             textos.setOpaque(false);
             textos.add(t, BorderLayout.NORTH);
@@ -1361,7 +1337,7 @@ public class AlimentaBemApp extends JFrame {
             botoes.add(principal);
 
             JPanel root = new JPanel(new BorderLayout());
-            root.setBackground(Color.WHITE);
+            root.setBackground(Theme.CARD);
             root.add(faixa, BorderLayout.NORTH);
             root.add(conteudo, BorderLayout.CENTER);
             root.add(botoes, BorderLayout.SOUTH);
@@ -1603,40 +1579,34 @@ public class AlimentaBemApp extends JFrame {
         JPanel root = new FundoPanel();
         root.setLayout(new BorderLayout());
 
-        // cabeçalho com logo, título e data
-        GradientPanel header = new GradientPanel();
-        header.setLayout(new BorderLayout(24, 0));
-        header.setBorder(new EmptyBorder(26, 34, 46, 34));
-        header.add(new LogoChip(92), BorderLayout.WEST);
+        // cabeçalho: logo + nome do app sobre papel areia com formas recortadas
+        OrganicPanel header = new OrganicPanel();
+        header.setLayout(new BorderLayout(20, 0));
+        header.setBorder(new EmptyBorder(24, 34, 32, 34));
+        header.add(new LogoChip(96), BorderLayout.WEST);
 
-        JLabel selo = new JLabel("PAINEL DE GESTÃO  •  BANCO DE ALIMENTOS");
-        selo.setFont(Theme.bodyBold(11));
-        selo.setForeground(Theme.ACCENT);
         JLabel logo = new JLabel("AlimentaBem");
         logo.setFont(Theme.title(42));
-        logo.setForeground(Color.WHITE);
-        JLabel lema = new JLabel("Doação, estoque e distribuição de alimentos — sem desperdício");
+        logo.setForeground(Theme.TEXT);
+        JLabel lema = new JLabel("Banco de alimentos: doação, estoque e distribuição sem desperdício");
         lema.setFont(Theme.body(14));
-        lema.setForeground(new Color(0xBFF5EE));
+        lema.setForeground(Theme.MUTED);
+        String dia = LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, dd 'de' MMMM 'de' yyyy", PT_BR));
+        JLabel data = new JLabel(Character.toUpperCase(dia.charAt(0)) + dia.substring(1));
+        data.setFont(Theme.bodyBold(12));
+        data.setForeground(Theme.ORANGE_DARK);
         JPanel textos = new JPanel();
         textos.setOpaque(false);
         textos.setLayout(new BoxLayout(textos, BoxLayout.Y_AXIS));
-        for (JLabel l : new JLabel[]{selo, logo, lema}) l.setAlignmentX(Component.LEFT_ALIGNMENT);
+        for (JLabel l : new JLabel[]{logo, lema, data}) l.setAlignmentX(Component.LEFT_ALIGNMENT);
         textos.add(Box.createVerticalGlue());
-        textos.add(selo);
-        textos.add(Box.createVerticalStrut(2));
         textos.add(logo);
         textos.add(Box.createVerticalStrut(2));
         textos.add(lema);
+        textos.add(Box.createVerticalStrut(8));
+        textos.add(data);
         textos.add(Box.createVerticalGlue());
         header.add(textos, BorderLayout.CENTER);
-
-        String dia = LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE", PT_BR));
-        dia = Character.toUpperCase(dia.charAt(0)) + dia.substring(1);
-        JPanel dataWrap = new JPanel(new GridBagLayout());
-        dataWrap.setOpaque(false);
-        dataWrap.add(new PillInfo(dia, LocalDate.now().format(DateTimeFormatter.ofPattern("dd 'de' MMMM 'de' yyyy", PT_BR))));
-        header.add(dataWrap, BorderLayout.EAST);
         root.add(header, BorderLayout.NORTH);
 
         // corpo
@@ -1646,25 +1616,25 @@ public class AlimentaBemApp extends JFrame {
 
         JPanel stats = new JPanel(new GridLayout(1, 4, 16, 0));
         stats.setOpaque(false);
-        stats.add(statCard("Doadores cadastrados", statDoadores, Theme.PRIMARY_DARK, "doador"));
-        stats.add(statCard("Alimentos cadastrados", statAlimentos, Theme.PRIMARY_DARK, "alimento"));
-        stats.add(statCard("Lotes válidos em estoque", statLotes, Theme.PRIMARY_DARK, "estoque"));
+        stats.add(statCard("Doadores cadastrados", statDoadores, Theme.ORANGE_DARK, "doador"));
+        stats.add(statCard("Alimentos cadastrados", statAlimentos, Theme.OLIVE_DARK, "alimento"));
+        stats.add(statCard("Lotes válidos em estoque", statLotes, new Color(0x8A6A12), "estoque"));
         stats.add(statCard("Lotes vencendo em 7 dias", statVencer, Theme.WARN, "relogio"));
         corpo.add(stats, BorderLayout.NORTH);
 
         JPanel grid = new JPanel(new GridLayout(2, 4, 16, 16));
         grid.setOpaque(false);
         grid.add(new MenuCard("doador", "Doadores", "Pessoas físicas e empresas doadoras", MenuCard.CLARO, this::abrirTelaDoadores));
-        grid.add(new MenuCard("alimento", "Alimentos", "Catálogo, categorias e valor nutricional (USDA)", MenuCard.CLARO, this::abrirTelaAlimentos));
-        grid.add(new MenuCard("instituicao", "Instituições", "Beneficiárias com endereço via CEP", MenuCard.CLARO, this::abrirTelaInstituicoes));
-        grid.add(new MenuCard("estoque", "Estoque", "Lotes ordenados por validade (FIFO)", MenuCard.CLARO, this::abrirTelaEstoque));
+        grid.add(new MenuCard("alimento", "Alimentos", "Catálogo, categorias e valor nutricional (USDA)", MenuCard.CLARO_OLIVA, this::abrirTelaAlimentos));
+        grid.add(new MenuCard("instituicao", "Instituições", "Beneficiárias com endereço via CEP", MenuCard.CLARO_AMARELO, this::abrirTelaInstituicoes));
+        grid.add(new MenuCard("estoque", "Estoque", "Lotes ordenados por validade (FIFO)", MenuCard.CLARO_PESSEGO, this::abrirTelaEstoque));
         grid.add(new MenuCard("doacao", "Doações", "Registrar e consultar doações recebidas", MenuCard.CLARO, this::abrirTelaDoacoes));
-        grid.add(new MenuCard("distribuicao", "Distribuições", "Saída de estoque para instituições, com sugestão FIFO", MenuCard.GRADIENTE, this::abrirTelaDistribuicoes));
-        grid.add(new MenuCard("relatorio", "Relatórios", "CSV, impacto nutricional e vencimentos", MenuCard.ESCURO, this::abrirTelaRelatorios));
-        grid.add(new MenuCard("sair", "Sair", "Encerrar o sistema", MenuCard.PERIGO, () -> {
+        grid.add(new MenuCard("distribuicao", "Distribuições", "Saída de estoque para instituições, com sugestão FIFO", MenuCard.LARANJA, this::abrirTelaDistribuicoes));
+        grid.add(new MenuCard("relatorio", "Relatórios", "CSV, impacto nutricional e vencimentos", MenuCard.OLIVA, this::abrirTelaRelatorios));
+        grid.add(new MenuCard("sair", "Sair", "Encerrar o sistema", MenuCard.SAIR, () -> {
             if (confirmar(this, "Encerrar o AlimentaBem?\nOs dados ficam salvos para a próxima vez.")) System.exit(0);
         }));
-        JLabel rodape = rotuloMuted("AlimentaBem  •  Projeto IP2  •  UFRPE  •  2026.2  •  dados salvos automaticamente");
+        JLabel rodape = rotuloMuted("AlimentaBem · Projeto IP2 · UFRPE · 2026.2 · os dados são salvos automaticamente");
         if (fachada.getArquivoDados() != null) {
             rodape.setToolTipText("Dados salvos em " + fachada.getArquivoDados().toAbsolutePath());
         }
@@ -1694,32 +1664,8 @@ public class AlimentaBemApp extends JFrame {
         return p;
     }
 
-    /** Anima o número de 0 até o valor atual (efeito de contagem). */
     private void contar(JLabel label, long alvo) {
-        long de;
-        try {
-            de = Long.parseLong(label.getText());
-        } catch (NumberFormatException e) {
-            de = 0;
-        }
-        if (de == alvo) {
-            label.setText(String.valueOf(alvo));
-            return;
-        }
-        final long inicio = de;
-        final int[] quadro = {0};
-        final int total = 18;
-        javax.swing.Timer timer = new javax.swing.Timer(18, null);
-        timer.addActionListener(ev -> {
-            quadro[0]++;
-            double k = 1 - Math.pow(1 - quadro[0] / (double) total, 3);
-            label.setText(String.valueOf(Math.round(inicio + (alvo - inicio) * k)));
-            if (quadro[0] >= total) {
-                label.setText(String.valueOf(alvo));
-                timer.stop();
-            }
-        });
-        timer.start();
+        label.setText(String.valueOf(alvo));
     }
 
     private void refreshStats() {
@@ -1731,7 +1677,7 @@ public class AlimentaBemApp extends JFrame {
         long vencer = lotesAVencer(7).size();
         contar(statLotes, validos);
         contar(statVencer, vencer);
-        statVencer.setForeground(vencer > 0 ? Theme.WARN : Theme.PRIMARY_DARK);
+        statVencer.setForeground(vencer > 0 ? Theme.ORANGE_DARK : Theme.OLIVE_DARK);
     }
 
     // =====================================================================
@@ -2086,9 +2032,9 @@ public class AlimentaBemApp extends JFrame {
         }
         JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         p.setOpaque(false);
-        p.add(new Chip(validos + " lote(s) válidos", new Color(0xD3F6EF), new Color(0x00675A)));
-        p.add(new Chip(vencendo + " vencendo em 7 dias", new Color(0xFEF3C7), new Color(0x92400E)));
-        p.add(new Chip(vencidos + " vencido(s) — bloqueados", new Color(0xFEE2E2), new Color(0xB91C1C)));
+        p.add(new Chip(validos + " lote(s) válidos", new Color(0xE4E8CB), new Color(0x4C5A22)));
+        p.add(new Chip(vencendo + " vencendo em 7 dias", new Color(0xFBF0C4), new Color(0x7A5A00)));
+        p.add(new Chip(vencidos + " vencido(s) — bloqueados", new Color(0xF8D9CE), new Color(0x9C3A22)));
         return p;
     }
 
@@ -2353,7 +2299,7 @@ public class AlimentaBemApp extends JFrame {
         JList<InstituicaoBeneficiaria> lista = new JList<>(lm);
         lista.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
         lista.setFixedCellHeight(66);
-        lista.setSelectionBackground(new Color(0xC8F0EA));
+        lista.setSelectionBackground(new Color(0xF8DDB5));
         lista.setSelectionForeground(Theme.TEXT);
         CelulaInstituicao celula = new CelulaInstituicao();
         lista.setCellRenderer((l, inst, i, sel, foc) -> {
@@ -2702,9 +2648,9 @@ public class AlimentaBemApp extends JFrame {
         JPanel cards = new JPanel(new GridLayout(3, 1, 0, 14));
         cards.setOpaque(false);
         cards.setBorder(new EmptyBorder(20, 24, 8, 24));
-        cards.add(new MenuCard("doacao", "Doações recebidas", "Por período e categoria, exportável em CSV", MenuCard.CLARO, this::abrirRelatorioDoacoes));
-        cards.add(new MenuCard("alimento", "Relatório nutricional", "Calorias e proteínas por instituição no mês", MenuCard.GRADIENTE, this::abrirRelatorioNutricional));
-        cards.add(new MenuCard("relogio", "Estoque a vencer", "Lotes que vencem nos próximos 7 dias", MenuCard.ESCURO, this::abrirEstoqueAVencer));
+        cards.add(new MenuCard("doacao", "Doações recebidas", "Por período e categoria, exportável em CSV", MenuCard.CLARO_OLIVA, this::abrirRelatorioDoacoes));
+        cards.add(new MenuCard("alimento", "Relatório nutricional", "Calorias e proteínas por instituição no mês", MenuCard.LARANJA, this::abrirRelatorioNutricional));
+        cards.add(new MenuCard("relogio", "Estoque a vencer", "Lotes que vencem nos próximos 7 dias", MenuCard.OLIVA, this::abrirEstoqueAVencer));
         root.add(cards, BorderLayout.CENTER);
 
         JPanel rod = rodapeBotoes();
@@ -2970,16 +2916,17 @@ public class AlimentaBemApp extends JFrame {
         }
         String html = "<!DOCTYPE html><html lang='pt-BR'><head><meta charset='UTF-8'>"
                 + "<title>Impacto nutricional — AlimentaBem</title><style>"
-                + "body{font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#F0F6F7;color:#1F2937;margin:0}"
-                + "header{background:linear-gradient(120deg,#2A3550,#00606C 55%,#019391);color:#fff;padding:36px 48px}"
-                + "header h1{margin:0;font-size:32px}header p{margin:6px 0 0;color:#BFF5EE}"
+                + "body{font-family:'Segoe UI',Nunito,Helvetica,Arial,sans-serif;background:#FBF5E9;color:#3B2F27;margin:0}"
+                + "header{background:#FAE6C8;border-bottom:4px solid #EF7B52;padding:34px 48px}"
+                + "header h1{margin:0;font-family:Georgia,'Times New Roman',serif;font-size:34px}"
+                + "header p{margin:6px 0 0;color:#7B6C5E}"
                 + "main{max-width:960px;margin:32px auto;padding:0 24px}"
                 + ".kpis{display:flex;gap:16px;margin-bottom:24px}"
-                + ".kpi{flex:1;background:#fff;border:1px solid #D8E6E9;border-radius:16px;padding:20px}"
-                + ".kpi b{display:block;font-size:30px;color:#019391}.kpi span{color:#6B7280;font-size:13px}"
-                + "table{width:100%;border-collapse:collapse;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #D8E6E9}"
-                + "th{background:#2A3550;color:#fff;text-align:left;padding:12px 16px;font-size:13px}"
-                + "td{padding:12px 16px;border-top:1px solid #E8F1F2}tr:nth-child(even) td{background:#F3FAFA}"
+                + ".kpi{flex:1;background:#FFFDF8;border:1px solid #E6D9C3;border-radius:14px;padding:20px}"
+                + ".kpi b{display:block;font-family:Georgia,serif;font-size:30px;color:#C4552F}.kpi span{color:#7B6C5E;font-size:13px}"
+                + "table{width:100%;border-collapse:collapse;background:#FFFDF8;border-radius:14px;overflow:hidden;border:1px solid #E6D9C3}"
+                + "th{background:#F3E4C6;color:#3B2F27;text-align:left;padding:12px 16px;font-size:13px;border-bottom:2px solid #EF7B52}"
+                + "td{padding:12px 16px;border-top:1px solid #EFE4CF}tr:nth-child(even) td{background:#FFFAF0}"
                 + "</style></head><body><header><h1>Impacto nutricional</h1><p>AlimentaBem — "
                 + ym.format(DateTimeFormatter.ofPattern("MM/yyyy")) + "</p></header><main>"
                 + "<div class='kpis'><div class='kpi'><b>" + nf(k) + "</b><span>kcal distribuídas</span></div>"

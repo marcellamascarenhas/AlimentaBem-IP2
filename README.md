@@ -73,6 +73,8 @@ JavaFX, USDA FoodData Central (https://fdc.nal.usda.gov/api-key-signup — chave
 | ![Nova distribuição (FIFO)](docs/screenshots/03-nova-distribuicao.png) | ![Relatório nutricional](docs/screenshots/04-relatorio-nutricional.png) |
 | ![Valor nutricional (USDA)](docs/screenshots/05-valor-nutricional.png) | ![Alimentos](docs/screenshots/06-alimentos.png) |
 
+Paleta, tipografia e decisões de design em [`docs/IDENTIDADE-VISUAL.md`](docs/IDENTIDADE-VISUAL.md).
+
 ## Arquitetura
 
 `Interface (Swing/Console) → Fachada → Serviços → Repositórios → Modelo`. Todas as regras de negócio ficam nos
