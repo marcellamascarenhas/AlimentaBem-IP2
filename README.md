@@ -8,8 +8,6 @@ Sistema para gestão de um banco de alimentos/ONG de doação, controlando doado
 
 Como diferencial, o sistema calcula o valor nutricional agregado de cada distribuição consultando uma base pública de composição de alimentos, e valida o endereço de coleta/entrega automaticamente a partir do CEP informado.
 
-> **Nota:** a Tabela TACO (NEPA/UNICAMP) é distribuída apenas como planilha/PDF estático, sem nenhuma API REST oficial disponível — por isso não pode ser "consultada" em tempo real como as demais integrações deste conjunto de projetos. A sugestão abaixo usa a **USDA FoodData Central**, API pública e gratuita (chave de uso gratuito obtida em segundos) mantida pelo governo dos EUA, que cumpre o mesmo papel pedagógico de consulta a uma base nutricional real.
-
 ## Requisitos Funcionais
 
 ### 1. Cadastro de Doadores e Beneficiários

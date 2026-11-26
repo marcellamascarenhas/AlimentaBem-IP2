@@ -42,14 +42,7 @@ os **valores de referência da própria tabela local** (USDA SR Legacy, por 100 
 que a origem foi a "Tabela local de referência". Se o alimento também não estiver no catálogo, aparece o erro e o usuário
 pode digitar os valores manualmente. Assim a demonstração não depende da rede.
 
-## 6. Roteiro rápido para testar
-1. Abra *Alimentos → selecione um alimento → Valor Nutricional (USDA) → Buscar na USDA*.
-2. Valores esperados (aproximados, por 100 g): Arroz ≈ 365 kcal e 7,1 g · Leite ≈ 61 kcal e 3,2 g · Maçã ≈ 52 kcal e 0,3 g · Ovo ≈ 143 kcal e 12,6 g.
-3. Teste um nome em inglês (`milk`) e um fora do catálogo (`quinoa`).
-4. Desligue o Wi-Fi e busque "Arroz": deve aparecer o aviso laranja com a tabela local.
-5. Digite algo inexistente (`asdfgh`): deve avisar que não achou e permitir digitação manual.
-
-## 7. Limitações (para ser transparente na apresentação)
+## 6. Limitações
 * A tradução cobre os alimentos mais comuns do catálogo; para outros, digite em inglês.
 * Alimentos brasileiros sem equivalente direto na USDA (ex.: tapioca, farinha de mandioca) podem não ser encontrados.
 * Os valores são **por 100 g**; alimentos em "unidade" dependem do peso médio da unidade informado no cadastro.
